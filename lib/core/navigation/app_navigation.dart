@@ -109,6 +109,12 @@ class MainNavigationShell extends ConsumerWidget {
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  QR FAB — Botón circular central para escanear
+//
+//  Patrón correcto (Andrea Bizzotto / Flutter docs):
+//  • NO envolver el FAB en SizedBox — Flutter ignora esas restricciones.
+//  • La sombra y el gradiente van dentro del child (Container), no en el FAB.
+//  • backgroundColor: Colors.transparent + elevation: 0 para que el
+//    Container sea el único responsable del color y la sombra.
 // ─────────────────────────────────────────────────────────────────────────────
 class _QRFab extends StatefulWidget {
   final bool isScannerOpen;
@@ -121,21 +127,19 @@ class _QRFab extends StatefulWidget {
 
 class _QRFabState extends State<_QRFab> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _scaleAnim;
   late Animation<double> _rotateAnim;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: AppDurations.slow);
-    _scaleAnim = Tween<double>(
-      begin: 1.0,
-      end: 0.9,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
-    _rotateAnim = Tween<double>(
-      begin: 0.0,
-      end: 0.25,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+    _controller = AnimationController(
+      vsync: this,
+      duration: AppDurations.normal,
+    );
+    // Solo rotación: 0 → 0.125 turns (45°) al abrir el scanner
+    _rotateAnim = Tween<double>(begin: 0.0, end: 0.125).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOutBack),
+    );
   }
 
   @override
@@ -156,62 +160,68 @@ class _QRFabState extends State<_QRFab> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    return ScaleTransition(
-      scale: _scaleAnim,
-      child: SizedBox(
+    return FloatingActionButton(
+      onPressed: () {
+        HapticFeedback.mediumImpact();
+        if (widget.isScannerOpen) {
+          context.go(AppRoutes.home);
+        } else {
+          context.go(AppRoutes.scanner);
+        }
+      },
+      // elevation: 0 para que el boxShadow del Container sea el único
+      elevation: 0,
+      focusElevation: 0,
+      hoverElevation: 0,
+      highlightElevation: 0,
+      shape: const CircleBorder(),
+      // transparent: el color real viene del Container de abajo
+      backgroundColor: Colors.transparent,
+      child: Container(
+        // Tamaño explícito del área visual del FAB
         width: AppDimens.navFabSize,
         height: AppDimens.navFabSize,
-        child: FloatingActionButton(
-          onPressed: () {
-            HapticFeedback.mediumImpact();
-            if (widget.isScannerOpen) {
-              context.go(AppRoutes.home);
-            } else {
-              context.go(AppRoutes.scanner);
-            }
-          },
-          elevation: AppDimens.navFabElevation,
-          shape: const CircleBorder(),
-          backgroundColor: Colors.transparent,
-          child: Ink(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  AppColors.navFabGradientStart,
-                  AppColors.navFabGradientEnd,
-                ],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withOpacity(0.45),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                  spreadRadius: 0,
-                ),
-              ],
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppColors.navFabGradientStart,
+              AppColors.navFabGradientEnd,
+            ],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withOpacity(0.45),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
             ),
-            child: RotationTransition(
-              turns: _rotateAnim,
-              child: AnimatedSwitcher(
-                duration: AppDurations.fast,
-                child: widget.isScannerOpen
-                    ? const Icon(
-                        Icons.close_rounded,
-                        key: ValueKey('close'),
-                        color: Colors.white,
-                        size: 28,
-                      )
-                    : const Icon(
-                        Icons.qr_code_scanner_rounded,
-                        key: ValueKey('qr'),
-                        color: Colors.white,
-                        size: 28,
-                      ),
-              ),
+          ],
+        ),
+        child: RotationTransition(
+          turns: _rotateAnim,
+          child: AnimatedSwitcher(
+            duration: AppDurations.fast,
+            switchInCurve: Curves.easeOut,
+            switchOutCurve: Curves.easeIn,
+            transitionBuilder: (child, anim) => ScaleTransition(
+              scale: anim,
+              child: child,
             ),
+            child: widget.isScannerOpen
+                ? const Icon(
+                    Icons.close_rounded,
+                    key: ValueKey('close'),
+                    color: Colors.white,
+                    size: 30,
+                  )
+                : const Icon(
+                    Icons.qr_code_scanner_rounded,
+                    key: ValueKey('qr'),
+                    color: Colors.white,
+                    size: 30,
+                  ),
           ),
         ),
       ),
@@ -237,9 +247,8 @@ class _OscarBottomBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final barBg = isDark ? const Color(0xFF1A2E20) : AppColors.navBackground;
-    final unselected = isDark
-        ? const Color(0xFF5A7A66)
-        : AppColors.navUnselected;
+    final unselected =
+        isDark ? const Color(0xFF5A7A66) : AppColors.navUnselected;
 
     return Container(
       decoration: BoxDecoration(
@@ -338,15 +347,16 @@ class _NavBarItemState extends State<_NavBarItem>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: AppDurations.fast);
-    _scaleAnim = Tween<double>(
-      begin: 1.0,
-      end: 1.15,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
-    _dotAnim = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+    _controller = AnimationController(
+      vsync: this,
+      duration: AppDurations.fast,
+    );
+    _scaleAnim = Tween<double>(begin: 1.0, end: 1.15).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
+    );
+    _dotAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
 
     if (widget.isSelected) _controller.value = 1.0;
   }
@@ -387,8 +397,10 @@ class _NavBarItemState extends State<_NavBarItem>
                 // ── Icon ───────────────────────────────────────────────────
                 AnimatedSwitcher(
                   duration: AppDurations.fast,
-                  transitionBuilder: (child, anim) =>
-                      ScaleTransition(scale: anim, child: child),
+                  transitionBuilder: (child, anim) => ScaleTransition(
+                    scale: anim,
+                    child: child,
+                  ),
                   child: Icon(
                     widget.isSelected
                         ? widget.item.iconSelected
@@ -408,9 +420,8 @@ class _NavBarItemState extends State<_NavBarItem>
                   duration: AppDurations.fast,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: AppDimens.navLabelFontSize,
-                    fontWeight: widget.isSelected
-                        ? FontWeight.w700
-                        : FontWeight.w500,
+                    fontWeight:
+                        widget.isSelected ? FontWeight.w700 : FontWeight.w500,
                     color: widget.isSelected
                         ? widget.selectedColor
                         : widget.unselectedColor,
