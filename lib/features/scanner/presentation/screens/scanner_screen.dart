@@ -1,44 +1,108 @@
 // lib/features/scanner/presentation/screens/scanner_screen.dart
+//
+//  Integra mobile_scanner para lectura real de QR.
+//  Flujo:
+//    1. Cámara activa con MobileScanner
+//    2. Al detectar un QR → muestra bottom sheet con el resultado
+//    3. Botón de linterna funcional
+//    4. Back → context.go(AppRoutes.home)
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../../core/constants/app_constants.dart';
 
-class ScannerScreen extends ConsumerWidget {
+class ScannerScreen extends ConsumerStatefulWidget {
   const ScannerScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ScannerScreen> createState() => _ScannerScreenState();
+}
+
+class _ScannerScreenState extends ConsumerState<ScannerScreen> {
+  // ── Scanner controller ────────────────────────────────────────────────────
+  final MobileScannerController _scannerController = MobileScannerController(
+    detectionSpeed: DetectionSpeed.noDuplicates,
+    facing: CameraFacing.back,
+  );
+
+  bool _torchOn = false;
+  bool _escaneado = false; // evita procesar múltiples lecturas simultáneas
+
+  @override
+  void dispose() {
+    _scannerController.dispose();
+    super.dispose();
+  }
+
+  // ── Toggle linterna ───────────────────────────────────────────────────────
+  Future<void> _toggleTorch() async {
+    await _scannerController.toggleTorch();
+    setState(() => _torchOn = !_torchOn);
+  }
+
+  // ── Callback al detectar un QR ────────────────────────────────────────────
+  void _onDetect(BarcodeCapture capture) {
+    if (_escaneado) return;
+
+    final Barcode? barcode = capture.barcodes.firstOrNull;
+    final String? valor = barcode?.rawValue;
+
+    if (valor != null && valor.isNotEmpty) {
+      _escaneado = true;
+      HapticFeedback.mediumImpact();
+
+      // Pausa la cámara mientras se muestra el resultado
+      _scannerController.stop();
+      _mostrarResultado(valor);
+    }
+  }
+
+  // ── Bottom sheet con el resultado ─────────────────────────────────────────
+  void _mostrarResultado(String contenido) {
+    showModalBottomSheet(
+      context: context,
+      isDismissible: false,
+      enableDrag: false,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ResultadoSheet(
+        contenido: contenido,
+        onEscanearOtro: () {
+          Navigator.pop(context);
+          setState(() => _escaneado = false);
+          _scannerController.start();
+        },
+        onCerrar: () => context.go(AppRoutes.home),
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final size = MediaQuery.of(context).size;
 
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // ── Camera Placeholder ──────────────────────────────────────────
-          Container(
-            width: size.width,
-            height: size.height,
-            color: const Color(0xFF0A1A0D),
-            child: const Center(
-              child: Icon(
-                Icons.camera_alt_rounded,
-                size: 80,
-                color: Color(0xFF1A3A1F),
-              ),
-            ),
+          // ── Cámara real ─────────────────────────────────────────────────
+          MobileScanner(
+            controller: _scannerController,
+            onDetect: _onDetect,
           ),
 
-          // ── QR Frame Overlay ────────────────────────────────────────────
+          // ── Overlay oscuro alrededor del frame ──────────────────────────
+          const _ScanOverlay(),
+
+          // ── Marco QR (esquinas verdes) ──────────────────────────────────
           Center(
             child: SizedBox(
               width: 260,
               height: 260,
-              child: CustomPaint(
-                painter: _QRFramePainter(),
-              ),
+              child: CustomPaint(painter: _QRFramePainter()),
             ),
           ),
 
@@ -57,31 +121,39 @@ class ScannerScreen extends ConsumerWidget {
                     'Escanear QR',
                     style: theme.textTheme.titleMedium?.copyWith(
                       color: Colors.white,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   _ScannerIconButton(
-                    icon: Icons.flash_off_rounded,
-                    onTap: () {},
+                    icon: _torchOn
+                        ? Icons.flashlight_on_rounded
+                        : Icons.flashlight_off_rounded,
+                    onTap: _toggleTorch,
                   ),
                 ],
               ),
             ),
           ),
 
-          // ── Bottom Info ─────────────────────────────────────────────────
+          // ── Bottom hint (sin chips) ──────────────────────────────────────
           Positioned(
             bottom: 0,
             left: 0,
             right: 0,
             child: Container(
-              padding: const EdgeInsets.all(AppDimens.lg),
+              padding: const EdgeInsets.fromLTRB(
+                AppDimens.lg,
+                AppDimens.xl,
+                AppDimens.lg,
+                AppDimens.xl,
+              ),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
                     Colors.transparent,
-                    Colors.black.withOpacity(0.85),
+                    Colors.black.withOpacity(0.80),
                   ],
                 ),
               ),
@@ -96,30 +168,14 @@ class ScannerScreen extends ConsumerWidget {
                         color: Colors.white,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     Text(
-                      'La IA clasificará tus residuos en tiempo real',
+                      'La cámara detectará el código automáticamente',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: Colors.white60,
+                        color: Colors.white54,
                       ),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: AppDimens.lg),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _FeatureChip(
-                          label: 'IA en tiempo real',
-                          icon: Icons.auto_awesome_rounded,
-                        ),
-                        const SizedBox(width: 8),
-                        _FeatureChip(
-                          label: 'Jackpot',
-                          icon: Icons.casino_rounded,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppDimens.xl),
                   ],
                 ),
               ),
@@ -131,6 +187,167 @@ class ScannerScreen extends ConsumerWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  OVERLAY — oscurece todo excepto el área del frame QR
+// ─────────────────────────────────────────────────────────────────────────────
+class _ScanOverlay extends StatelessWidget {
+  const _ScanOverlay();
+
+  static const double _frameSize = 260.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final centerX = size.width / 2;
+    final centerY = size.height / 2;
+    final half = _frameSize / 2;
+
+    return CustomPaint(
+      size: size,
+      painter: _OverlayPainter(
+        frameRect: Rect.fromLTRB(
+          centerX - half,
+          centerY - half,
+          centerX + half,
+          centerY + half,
+        ),
+      ),
+    );
+  }
+}
+
+class _OverlayPainter extends CustomPainter {
+  final Rect frameRect;
+  const _OverlayPainter({required this.frameRect});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = Colors.black.withOpacity(0.55);
+    final fullRect = Rect.fromLTWH(0, 0, size.width, size.height);
+
+    final path = Path()
+      ..addRect(fullRect)
+      ..addRRect(RRect.fromRectAndRadius(frameRect, const Radius.circular(16)))
+      ..fillType = PathFillType.evenOdd;
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_OverlayPainter oldDelegate) =>
+      oldDelegate.frameRect != frameRect;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  RESULTADO SHEET
+// ─────────────────────────────────────────────────────────────────────────────
+class _ResultadoSheet extends StatelessWidget {
+  final String contenido;
+  final VoidCallback onEscanearOtro;
+  final VoidCallback onCerrar;
+
+  const _ResultadoSheet({
+    required this.contenido,
+    required this.onEscanearOtro,
+    required this.onCerrar,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      margin: const EdgeInsets.all(AppDimens.md),
+      padding: const EdgeInsets.all(AppDimens.lg),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppDimens.radiusXl),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE2ECE7),
+              borderRadius: BorderRadius.circular(AppDimens.radiusFull),
+            ),
+          ),
+          const SizedBox(height: AppDimens.lg),
+
+          // Ícono de éxito
+          Container(
+            width: 64,
+            height: 64,
+            decoration: const BoxDecoration(
+              color: AppColors.primarySurface,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.check_circle_rounded,
+              color: AppColors.primary,
+              size: 36,
+            ),
+          ),
+          const SizedBox(height: AppDimens.md),
+
+          Text(
+            '¡QR detectado!',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: AppDimens.sm),
+
+          // Contenido escaneado
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppDimens.md),
+            decoration: BoxDecoration(
+              color: AppColors.primarySurface,
+              borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+              border: Border.all(color: const Color(0xFFE2ECE7)),
+            ),
+            child: SelectableText(
+              contenido,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppColors.textPrimary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: AppDimens.lg),
+
+          // Acciones
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: onEscanearOtro,
+                  child: const Text('Escanear otro'),
+                ),
+              ),
+              const SizedBox(width: AppDimens.md),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: onCerrar,
+                  child: const Text('Continuar'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppDimens.sm),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  SCANNER ICON BUTTON
+// ─────────────────────────────────────────────────────────────────────────────
 class _ScannerIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
@@ -144,7 +361,7 @@ class _ScannerIconButton extends StatelessWidget {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.12),
+          color: Colors.white.withOpacity(0.15),
           borderRadius: BorderRadius.circular(AppDimens.radiusMd),
         ),
         child: Icon(icon, color: Colors.white, size: 20),
@@ -153,40 +370,9 @@ class _ScannerIconButton extends StatelessWidget {
   }
 }
 
-class _FeatureChip extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  const _FeatureChip({required this.label, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.25),
-        borderRadius: BorderRadius.circular(AppDimens.radiusFull),
-        border: Border.all(color: AppColors.primary.withOpacity(0.4)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: AppColors.primaryLight, size: 14),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.primaryLight,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── QR Corner Frame Painter ──────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+//  QR FRAME PAINTER — Esquinas redondeadas verdes
+// ─────────────────────────────────────────────────────────────────────────────
 class _QRFramePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
@@ -196,47 +382,38 @@ class _QRFramePainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
-    const cornerLen = 32.0;
-    const radius = 12.0;
+    const cornerLen = 36.0;
+    const r = 14.0;
 
     // Top-left
-    canvas.drawLine(const Offset(radius, 0), const Offset(cornerLen, 0), paint);
-    canvas.drawLine(const Offset(0, radius), const Offset(0, cornerLen), paint);
-    canvas.drawArc(const Rect.fromLTWH(0, 0, radius * 2, radius * 2), 3.14159,
+    canvas.drawLine(const Offset(r, 0), const Offset(cornerLen, 0), paint);
+    canvas.drawLine(const Offset(0, r), const Offset(0, cornerLen), paint);
+    canvas.drawArc(const Rect.fromLTWH(0, 0, r * 2, r * 2), 3.14159,
         3.14159 / 2, false, paint);
 
     // Top-right
-    canvas.drawLine(Offset(size.width - cornerLen, 0),
-        Offset(size.width - radius, 0), paint);
     canvas.drawLine(
-        Offset(size.width, radius), Offset(size.width, cornerLen), paint);
-    canvas.drawArc(
-        Rect.fromLTWH(size.width - radius * 2, 0, radius * 2, radius * 2),
-        3.14159 * 1.5,
-        3.14159 / 2,
-        false,
-        paint);
+        Offset(size.width - cornerLen, 0), Offset(size.width - r, 0), paint);
+    canvas.drawLine(
+        Offset(size.width, r), Offset(size.width, cornerLen), paint);
+    canvas.drawArc(Rect.fromLTWH(size.width - r * 2, 0, r * 2, r * 2),
+        3.14159 * 1.5, 3.14159 / 2, false, paint);
 
     // Bottom-left
-    canvas.drawLine(Offset(0, size.height - cornerLen),
-        Offset(0, size.height - radius), paint);
     canvas.drawLine(
-        Offset(radius, size.height), Offset(cornerLen, size.height), paint);
-    canvas.drawArc(
-        Rect.fromLTWH(0, size.height - radius * 2, radius * 2, radius * 2),
-        3.14159 / 2,
-        3.14159 / 2,
-        false,
-        paint);
+        Offset(0, size.height - cornerLen), Offset(0, size.height - r), paint);
+    canvas.drawLine(
+        Offset(r, size.height), Offset(cornerLen, size.height), paint);
+    canvas.drawArc(Rect.fromLTWH(0, size.height - r * 2, r * 2, r * 2),
+        3.14159 / 2, 3.14159 / 2, false, paint);
 
     // Bottom-right
     canvas.drawLine(Offset(size.width - cornerLen, size.height),
-        Offset(size.width - radius, size.height), paint);
+        Offset(size.width - r, size.height), paint);
     canvas.drawLine(Offset(size.width, size.height - cornerLen),
-        Offset(size.width, size.height - radius), paint);
+        Offset(size.width, size.height - r), paint);
     canvas.drawArc(
-        Rect.fromLTWH(size.width - radius * 2, size.height - radius * 2,
-            radius * 2, radius * 2),
+        Rect.fromLTWH(size.width - r * 2, size.height - r * 2, r * 2, r * 2),
         0,
         3.14159 / 2,
         false,
