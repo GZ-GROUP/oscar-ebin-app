@@ -61,13 +61,13 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   }
 
   // ── Bottom sheet con el resultado ─────────────────────────────────────────
+// ── Reemplaza _mostrarResultado ───────────────────────────────────────────
   void _mostrarResultado(String contenido) {
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      isDismissible: false,
-      enableDrag: false,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _ResultadoSheet(
+      barrierDismissible: false,
+      barrierColor: Colors.black.withOpacity(0.6),
+      builder: (_) => _ResultadoDialog(
         contenido: contenido,
         onEscanearOtro: () {
           Navigator.pop(context);
@@ -239,14 +239,14 @@ class _OverlayPainter extends CustomPainter {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  RESULTADO SHEET
+//  RESULTADO DIALOG — modal centrado
 // ─────────────────────────────────────────────────────────────────────────────
-class _ResultadoSheet extends StatelessWidget {
+class _ResultadoDialog extends StatelessWidget {
   final String contenido;
   final VoidCallback onEscanearOtro;
   final VoidCallback onCerrar;
 
-  const _ResultadoSheet({
+  const _ResultadoDialog({
     required this.contenido,
     required this.onEscanearOtro,
     required this.onCerrar,
@@ -256,90 +256,102 @@ class _ResultadoSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
-      margin: const EdgeInsets.all(AppDimens.md),
-      padding: const EdgeInsets.all(AppDimens.lg),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppDimens.radiusXl),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Handle
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE2ECE7),
-              borderRadius: BorderRadius.circular(AppDimens.radiusFull),
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+      child: Container(
+        padding: const EdgeInsets.all(AppDimens.lg),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(AppDimens.radiusXl),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.18),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
             ),
-          ),
-          const SizedBox(height: AppDimens.lg),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ── Ícono de éxito ───────────────────────────────────────────
+            Container(
+              width: 68,
+              height: 68,
+              decoration: const BoxDecoration(
+                color: AppColors.primarySurface,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.check_circle_rounded,
+                color: AppColors.primary,
+                size: 38,
+              ),
+            ),
+            const SizedBox(height: AppDimens.md),
 
-          // Ícono de éxito
-          Container(
-            width: 64,
-            height: 64,
-            decoration: const BoxDecoration(
-              color: AppColors.primarySurface,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.check_circle_rounded,
-              color: AppColors.primary,
-              size: 36,
-            ),
-          ),
-          const SizedBox(height: AppDimens.md),
-
-          Text(
-            '¡QR detectado!',
-            style: theme.textTheme.headlineSmall?.copyWith(
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: AppDimens.sm),
-
-          // Contenido escaneado
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(AppDimens.md),
-            decoration: BoxDecoration(
-              color: AppColors.primarySurface,
-              borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-              border: Border.all(color: const Color(0xFFE2ECE7)),
-            ),
-            child: SelectableText(
-              contenido,
-              style: theme.textTheme.bodyMedium?.copyWith(
+            // ── Título ───────────────────────────────────────────────────
+            Text(
+              '¡QR detectado!',
+              style: theme.textTheme.headlineSmall?.copyWith(
                 color: AppColors.textPrimary,
+                fontWeight: FontWeight.w700,
               ),
-              textAlign: TextAlign.center,
             ),
-          ),
-          const SizedBox(height: AppDimens.lg),
+            const SizedBox(height: AppDimens.sm),
 
-          // Acciones
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: onEscanearOtro,
-                  child: const Text('Escanear otro'),
+            Text(
+              'Contenido del código escaneado',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: AppColors.textPrimary.withOpacity(0.5),
+              ),
+            ),
+            const SizedBox(height: AppDimens.md),
+
+            // ── Contenido escaneado ──────────────────────────────────────
+            Container(
+              width: double.infinity,
+              constraints: const BoxConstraints(maxHeight: 120),
+              padding: const EdgeInsets.all(AppDimens.md),
+              decoration: BoxDecoration(
+                color: AppColors.primarySurface,
+                borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+                border: Border.all(color: const Color(0xFFE2ECE7)),
+              ),
+              child: SingleChildScrollView(
+                child: SelectableText(
+                  contenido,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.textPrimary,
+                    fontFamily: 'monospace',
+                  ),
+                  textAlign: TextAlign.center,
                 ),
               ),
-              const SizedBox(width: AppDimens.md),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: onCerrar,
-                  child: const Text('Continuar'),
+            ),
+            const SizedBox(height: AppDimens.lg),
+
+            // ── Acciones ─────────────────────────────────────────────────
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: onEscanearOtro,
+                    child: const Text('Escanear otro'),
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppDimens.sm),
-        ],
+                const SizedBox(width: AppDimens.md),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: onCerrar,
+                    child: const Text('Continuar'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
