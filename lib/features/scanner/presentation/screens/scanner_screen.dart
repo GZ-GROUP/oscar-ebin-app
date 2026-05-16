@@ -1,11 +1,4 @@
 // lib/features/scanner/presentation/screens/scanner_screen.dart
-//
-//  Integra mobile_scanner para lectura real de QR.
-//  Flujo:
-//    1. Cámara activa con MobileScanner
-//    2. Al detectar un QR → muestra bottom sheet con el resultado
-//    3. Botón de linterna funcional
-//    4. Back → context.go(AppRoutes.home)
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -22,14 +15,13 @@ class ScannerScreen extends ConsumerStatefulWidget {
 }
 
 class _ScannerScreenState extends ConsumerState<ScannerScreen> {
-  // ── Scanner controller ────────────────────────────────────────────────────
   final MobileScannerController _scannerController = MobileScannerController(
     detectionSpeed: DetectionSpeed.noDuplicates,
     facing: CameraFacing.back,
   );
 
   bool _torchOn = false;
-  bool _escaneado = false; // evita procesar múltiples lecturas simultáneas
+  bool _escaneado = false;
 
   @override
   void dispose() {
@@ -37,49 +29,59 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     super.dispose();
   }
 
-  // ── Toggle linterna ───────────────────────────────────────────────────────
   Future<void> _toggleTorch() async {
     await _scannerController.toggleTorch();
-    setState(() => _torchOn = !_torchOn);
+    if (mounted) setState(() => _torchOn = !_torchOn);
   }
 
-  // ── Callback al detectar un QR ────────────────────────────────────────────
   void _onDetect(BarcodeCapture capture) {
     if (_escaneado) return;
 
-    final Barcode? barcode = capture.barcodes.firstOrNull;
-    final String? valor = barcode?.rawValue;
+    final String? valor = capture.barcodes.firstOrNull?.rawValue;
 
     if (valor != null && valor.isNotEmpty) {
       _escaneado = true;
       HapticFeedback.mediumImpact();
-
-      // Pausa la cámara mientras se muestra el resultado
       _scannerController.stop();
       _mostrarResultado(valor);
     }
   }
 
-  // ── Bottom sheet con el resultado ─────────────────────────────────────────
-// ── Reemplaza _mostrarResultado ───────────────────────────────────────────
+  // ── CORRECCIÓN PRINCIPAL ──────────────────────────────────────────────────
+  //  • Se usa `dialogContext` (del builder) para cerrar el dialog.
+  //  • Se verifica `mounted` antes de tocar el State o navegar con el
+  //    context del Screen, evitando el error de widget desmontado.
+  // ─────────────────────────────────────────────────────────────────────────
   void _mostrarResultado(String contenido) {
     showDialog(
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black.withOpacity(0.6),
-      builder: (_) => _ResultadoDialog(
+      builder: (dialogContext) => _ResultadoDialog(
         contenido: contenido,
         onEscanearOtro: () {
-          Navigator.pop(context);
-          setState(() => _escaneado = false);
-          _scannerController.start();
+          // 1. Cierra el dialog usando su propio context
+          Navigator.of(dialogContext).pop();
+
+          // 2. Solo toca el State si el Screen sigue montado
+          if (mounted) {
+            setState(() => _escaneado = false);
+            _scannerController.start();
+          }
         },
-        onCerrar: () => context.go(AppRoutes.home),
+        onCerrar: () {
+          // 1. Cierra el dialog primero
+          Navigator.of(dialogContext).pop();
+
+          // 2. Navega solo si el Screen sigue montado
+          if (mounted) {
+            context.go(AppRoutes.home);
+          }
+        },
       ),
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -88,16 +90,11 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // ── Cámara real ─────────────────────────────────────────────────
           MobileScanner(
             controller: _scannerController,
             onDetect: _onDetect,
           ),
-
-          // ── Overlay oscuro alrededor del frame ──────────────────────────
           const _ScanOverlay(),
-
-          // ── Marco QR (esquinas verdes) ──────────────────────────────────
           Center(
             child: SizedBox(
               width: 260,
@@ -105,8 +102,6 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
               child: CustomPaint(painter: _QRFramePainter()),
             ),
           ),
-
-          // ── Top Bar ─────────────────────────────────────────────────────
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(AppDimens.md),
@@ -134,8 +129,6 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
               ),
             ),
           ),
-
-          // ── Bottom hint (sin chips) ──────────────────────────────────────
           Positioned(
             bottom: 0,
             left: 0,
@@ -188,11 +181,10 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  OVERLAY — oscurece todo excepto el área del frame QR
+//  OVERLAY
 // ─────────────────────────────────────────────────────────────────────────────
 class _ScanOverlay extends StatelessWidget {
   const _ScanOverlay();
-
   static const double _frameSize = 260.0;
 
   @override
@@ -223,23 +215,19 @@ class _OverlayPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..color = Colors.black.withOpacity(0.55);
-    final fullRect = Rect.fromLTWH(0, 0, size.width, size.height);
-
     final path = Path()
-      ..addRect(fullRect)
+      ..addRect(Rect.fromLTWH(0, 0, size.width, size.height))
       ..addRRect(RRect.fromRectAndRadius(frameRect, const Radius.circular(16)))
       ..fillType = PathFillType.evenOdd;
-
     canvas.drawPath(path, paint);
   }
 
   @override
-  bool shouldRepaint(_OverlayPainter oldDelegate) =>
-      oldDelegate.frameRect != frameRect;
+  bool shouldRepaint(_OverlayPainter old) => old.frameRect != frameRect;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  RESULTADO DIALOG — modal centrado
+//  RESULTADO DIALOG
 // ─────────────────────────────────────────────────────────────────────────────
 class _ResultadoDialog extends StatelessWidget {
   final String contenido;
@@ -275,7 +263,6 @@ class _ResultadoDialog extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // ── Ícono de éxito ───────────────────────────────────────────
             Container(
               width: 68,
               height: 68,
@@ -290,8 +277,6 @@ class _ResultadoDialog extends StatelessWidget {
               ),
             ),
             const SizedBox(height: AppDimens.md),
-
-            // ── Título ───────────────────────────────────────────────────
             Text(
               '¡QR detectado!',
               style: theme.textTheme.headlineSmall?.copyWith(
@@ -300,7 +285,6 @@ class _ResultadoDialog extends StatelessWidget {
               ),
             ),
             const SizedBox(height: AppDimens.sm),
-
             Text(
               'Contenido del código escaneado',
               style: theme.textTheme.bodySmall?.copyWith(
@@ -308,8 +292,6 @@ class _ResultadoDialog extends StatelessWidget {
               ),
             ),
             const SizedBox(height: AppDimens.md),
-
-            // ── Contenido escaneado ──────────────────────────────────────
             Container(
               width: double.infinity,
               constraints: const BoxConstraints(maxHeight: 120),
@@ -331,8 +313,6 @@ class _ResultadoDialog extends StatelessWidget {
               ),
             ),
             const SizedBox(height: AppDimens.lg),
-
-            // ── Acciones ─────────────────────────────────────────────────
             Row(
               children: [
                 Expanded(
@@ -383,7 +363,7 @@ class _ScannerIconButton extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  QR FRAME PAINTER — Esquinas redondeadas verdes
+//  QR FRAME PAINTER
 // ─────────────────────────────────────────────────────────────────────────────
 class _QRFramePainter extends CustomPainter {
   @override
