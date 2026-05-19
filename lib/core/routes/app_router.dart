@@ -14,6 +14,10 @@ import '../../features/scanner/presentation/screens/scanner_screen.dart';
 import '../../features/leaderboard/presentation/screens/leaderboard_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
+import '../../features/auth/presentation/screens/onboarding_screen.dart';
+import '../../features/auth/presentation/screens/signup_screen.dart';
+import '../../features/auth/presentation/screens/splash_screen.dart';
+import '../../features/auth/providers/auth_provider.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  NAVIGATOR KEYS
@@ -32,26 +36,56 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
-    initialLocation: AppRoutes.home,
+    initialLocation: AppRoutes.splash,
     debugLogDiagnostics: true,
 
     // ── Redirect Logic ─────────────────────────────────────────────────────
     redirect: (context, state) {
-      // TODO: Implement auth-based redirect
-      // final isLoggedIn = authState.isAuthenticated;
-      // final isGoingToLogin = state.matchedLocation == AppRoutes.login;
-      // if (!isLoggedIn && !isGoingToLogin) return AppRoutes.login;
-      // if (isLoggedIn && isGoingToLogin) return AppRoutes.home;
+      final authState = ref.read(authProvider);
+      final isLoggedIn = authState.isAuthenticated;
+      final isGoingToLogin = state.matchedLocation == AppRoutes.login;
+      final isGoingToOnboarding =
+          state.matchedLocation == AppRoutes.onboarding ||
+              state.matchedLocation?.startsWith(AppRoutes.onboarding) == true;
+
+      if (authState.isLoading) return null; // wait until known
+
+      if (!isLoggedIn && !isGoingToLogin && !isGoingToOnboarding) {
+        return AppRoutes.onboarding;
+      }
+      if (isLoggedIn && (isGoingToLogin || isGoingToOnboarding))
+        return AppRoutes.home;
       return null;
     },
 
     routes: [
       // ── Outside Shell (no nav bar) ───────────────────────────────────────
       GoRoute(
+        path: AppRoutes.splash,
+        name: 'splash',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const SplashScreen(),
+      ),
+
+      GoRoute(
         path: AppRoutes.login,
         name: 'login',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const LoginScreen(),
+      ),
+
+      GoRoute(
+        path: AppRoutes.onboarding,
+        name: 'onboarding',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const OnboardingScreen(),
+      ),
+
+      GoRoute(
+        path: '/onboarding/start',
+        name: 'signup',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const SignupScreen(),
       ),
 
       // ── Main Shell (with nav bar) ────────────────────────────────────────

@@ -22,6 +22,10 @@ dependencies:
   google_fonts: ^6.2.1
   cupertino_icons: ^1.0.8
 
+  # Networking & Storage
+  http: ^1.6.0
+  shared_preferences: ^2.2.0
+
   # Utils
   equatable: ^2.0.5
 

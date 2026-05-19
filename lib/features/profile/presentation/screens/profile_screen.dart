@@ -3,6 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../auth/providers/auth_provider.dart';
+import 'package:go_router/go_router.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -10,6 +12,39 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+
+    final items1 = [
+      _MenuItem(
+          icon: Icons.card_giftcard_rounded,
+          label: 'Recompensas',
+          color: AppColors.accentAmber),
+      _MenuItem(
+          icon: Icons.history_rounded,
+          label: 'Historial',
+          color: AppColors.accentTeal),
+      _MenuItem(
+          icon: Icons.insights_rounded,
+          label: 'Métricas personales',
+          color: AppColors.accentPurple),
+    ];
+
+    final items2 = [
+      _MenuItem(
+          icon: Icons.person_outline_rounded,
+          label: 'Información personal',
+          color: AppColors.primary),
+      _MenuItem(
+          icon: Icons.settings_outlined,
+          label: 'Configuración',
+          color: AppColors.textSecondary),
+      _MenuItem(
+          icon: Icons.logout_rounded,
+          label: 'Cerrar sesión',
+          color: AppColors.error,
+          onTap: () async {
+            // Logout handled in tile via callback
+          }),
+    ];
 
     return Scaffold(
       appBar: AppBar(
@@ -38,59 +73,46 @@ class ProfileScreen extends ConsumerWidget {
           const SizedBox(height: AppDimens.lg),
 
           // ── Menu Sections ────────────────────────────────────────────────
-          _MenuSection(
-            title: 'Mi actividad',
-            items: const [
-              _MenuItem(
-                icon: Icons.card_giftcard_rounded,
-                label: 'Recompensas',
-                color: AppColors.accentAmber,
-              ),
-              _MenuItem(
-                icon: Icons.history_rounded,
-                label: 'Historial',
-                color: AppColors.accentTeal,
-              ),
-              _MenuItem(
-                icon: Icons.insights_rounded,
-                label: 'Métricas personales',
-                color: AppColors.accentPurple,
-              ),
-            ],
-          ),
+          _MenuSection(title: 'Mi actividad', items: items1),
           const SizedBox(height: AppDimens.md),
           _MenuSection(
-            title: 'Cuenta',
-            items: const [
-              _MenuItem(
-                icon: Icons.person_outline_rounded,
-                label: 'Información personal',
-                color: AppColors.primary,
-              ),
-              _MenuItem(
-                icon: Icons.settings_outlined,
-                label: 'Configuración',
-                color: AppColors.textSecondary,
-              ),
-              _MenuItem(
-                icon: Icons.logout_rounded,
-                label: 'Cerrar sesión',
-                color: AppColors.error,
-              ),
-            ],
-          ),
+              title: 'Cuenta',
+              items: items2.map((it) {
+                // attach logout callback to the logout item
+                if (it.label == 'Cerrar sesión') {
+                  return _MenuItem(
+                      icon: it.icon,
+                      label: it.label,
+                      color: it.color,
+                      onTap: () async {
+                        final notifier = ref.read(authProvider.notifier);
+                        await notifier.logout();
+                        if (context.mounted) context.go(AppRoutes.onboarding);
+                      });
+                }
+                return it;
+              }).toList()),
         ],
       ),
     );
   }
 }
 
-class _ProfileHeader extends StatelessWidget {
+class _ProfileHeader extends ConsumerWidget {
   final ThemeData theme;
   const _ProfileHeader({required this.theme});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final auth = ref.watch(authProvider);
+    final name = auth.name ?? 'Reciclador';
+    String initials() {
+      final parts = name.split(' ');
+      if (parts.isEmpty) return 'R';
+      if (parts.length == 1) return parts[0].substring(0, 1).toUpperCase();
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+
     return Row(
       children: [
         Stack(
@@ -111,10 +133,10 @@ class _ProfileHeader extends StatelessWidget {
                   ),
                 ],
               ),
-              child: const Center(
+              child: Center(
                 child: Text(
-                  'JD',
-                  style: TextStyle(
+                  initials(),
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 24,
                     fontWeight: FontWeight.w800,
@@ -147,7 +169,7 @@ class _ProfileHeader extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Juan Díaz', style: theme.textTheme.headlineSmall),
+              Text(name, style: theme.textTheme.headlineSmall),
               Text(
                 'Reciclador Nivel 4 · Panamá',
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -277,10 +299,12 @@ class _MenuItem {
   final IconData icon;
   final String label;
   final Color color;
+  final VoidCallback? onTap;
   const _MenuItem({
     required this.icon,
     required this.label,
     required this.color,
+    this.onTap,
   });
 }
 
@@ -307,7 +331,7 @@ class _MenuTile extends StatelessWidget {
         color: AppColors.textDisabled,
         size: 20,
       ),
-      onTap: () {},
+      onTap: item.onTap,
       contentPadding: const EdgeInsets.symmetric(
         horizontal: AppDimens.md,
         vertical: 2,

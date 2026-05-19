@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../auth/providers/auth_provider.dart';
 import '../../../../core/constants/app_constants.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -10,6 +11,8 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final auth = ref.watch(authProvider);
+    final displayName = auth.name ?? 'Reciclador';
 
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
@@ -17,7 +20,8 @@ class HomeScreen extends ConsumerWidget {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('¡Hola, Reciclador! 👋', style: theme.textTheme.headlineSmall),
+            Text('¡Hola, $displayName! 👋',
+                style: theme.textTheme.headlineSmall),
             Text(
               'Resumen de hoy',
               style: theme.textTheme.bodySmall?.copyWith(
