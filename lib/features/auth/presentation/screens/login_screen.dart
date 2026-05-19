@@ -21,74 +21,77 @@ class LoginScreen extends ConsumerWidget {
         child: LoadingOverlay(
           isLoading: auth.isLoading,
           message: 'Iniciando sesión...',
-          child: Padding(
-            padding: const EdgeInsets.all(AppDimens.lg),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Spacer(),
-                // ── Logo / Brand ─────────────────────────────────────────────
-                Center(
-                  child: Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppColors.primary, AppColors.primaryDark],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withOpacity(0.4),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
+          child: LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+              padding: const EdgeInsets.all(AppDimens.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: AppDimens.lg),
+                  // ── Logo / Brand ─────────────────────────────────────────────
+                  Center(
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [AppColors.primary, AppColors.primaryDark],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
-                      ],
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withOpacity(0.4),
+                            blurRadius: 20,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.recycling_rounded,
+                        color: Colors.white,
+                        size: 40,
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.recycling_rounded,
-                      color: Colors.white,
-                      size: 40,
+                  ),
+                  const SizedBox(height: AppDimens.lg),
+                  Text(
+                    AppStrings.appName,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.displayMedium?.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -2,
                     ),
                   ),
-                ),
-                const SizedBox(height: AppDimens.lg),
-                Text(
-                  AppStrings.appName,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.displayMedium?.copyWith(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -2,
+                  Text(
+                    AppStrings.appTagline,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
                   ),
-                ),
-                Text(
-                  AppStrings.appTagline,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: AppColors.textSecondary,
+                  const SizedBox(height: AppDimens.lg),
+                  // ── Email Sign In ───────────────────────────────────────────
+                  _EmailLoginForm(auth: auth, authNotifier: authNotifier),
+                  const SizedBox(height: AppDimens.md),
+                  TextButton(
+                    onPressed: () => context.go(AppRoutes.onboarding),
+                    child: const Text('Crear cuenta / Registrarme'),
                   ),
-                ),
-                const Spacer(),
-                // ── Email Sign In ───────────────────────────────────────────
-                _EmailLoginForm(auth: auth, authNotifier: authNotifier),
-                const SizedBox(height: AppDimens.md),
-                TextButton(
-                  onPressed: () => context.go(AppRoutes.onboarding),
-                  child: const Text('Crear cuenta / Registrarme'),
-                ),
-                const SizedBox(height: AppDimens.sm),
-                Text(
-                  'Al continuar, aceptas nuestros Términos y Política de Privacidad',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppColors.textDisabled,
+                  const SizedBox(height: AppDimens.sm),
+                  Text(
+                    'Al continuar, aceptas nuestros Términos y Política de Privacidad',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: AppColors.textDisabled,
+                    ),
                   ),
-                ),
-                const SizedBox(height: AppDimens.lg),
-              ],
+                  const SizedBox(height: AppDimens.lg),
+                ],
+              ),
             ),
           ),
         ),

@@ -36,6 +36,20 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     super.dispose();
   }
 
+  Widget _buildSexOption(String value, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Radio<String>(
+          value: value,
+          groupValue: _sex,
+          onChanged: (v) => setState(() => _sex = v!),
+        ),
+        Text(label),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -81,28 +95,15 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               ),
               const SizedBox(height: AppDimens.md),
               Text('Sexo', style: theme.textTheme.titleMedium),
-              Row(children: [
-                Radio<String>(
-                  value: 'masculino',
-                  groupValue: _sex,
-                  onChanged: (v) => setState(() => _sex = v!),
-                ),
-                const Text('Masculino'),
-                const SizedBox(width: 12),
-                Radio<String>(
-                  value: 'femenino',
-                  groupValue: _sex,
-                  onChanged: (v) => setState(() => _sex = v!),
-                ),
-                const Text('Femenino'),
-                const SizedBox(width: 12),
-                Radio<String>(
-                  value: 'prefiero_no',
-                  groupValue: _sex,
-                  onChanged: (v) => setState(() => _sex = v!),
-                ),
-                const Text('Prefiero no decir'),
-              ]),
+              Wrap(
+                spacing: 12,
+                runSpacing: 8,
+                children: [
+                  _buildSexOption('masculino', 'Masculino'),
+                  _buildSexOption('femenino', 'Femenino'),
+                  _buildSexOption('prefiero_no', 'Prefiero no decir'),
+                ],
+              ),
               const SizedBox(height: AppDimens.md),
               DropdownButtonFormField<String>(
                 value: _ocupacion,
