@@ -10,6 +10,9 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_launcher_icons: "^0.13.1"
+  geolocator: ^14.0.2
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
 
   # State Management
   flutter_riverpod: ^2.5.1

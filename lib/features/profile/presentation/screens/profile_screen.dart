@@ -105,12 +105,17 @@ class _ProfileHeader extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authProvider);
-    final name = auth.name ?? 'Reciclador';
+    final name = auth.name?.trim();
+    final displayName = (name?.isEmpty ?? true) ? 'Reciclador' : name!;
     String initials() {
-      final parts = name.split(' ');
+      final parts = displayName
+          .trim()
+          .split(RegExp(r'\s+'))
+          .where((part) => part.isNotEmpty)
+          .toList();
       if (parts.isEmpty) return 'R';
-      if (parts.length == 1) return parts[0].substring(0, 1).toUpperCase();
-      return (parts[0][0] + parts[1][0]).toUpperCase();
+      if (parts.length == 1) return parts[0][0].toUpperCase();
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
     }
 
     return Row(
@@ -169,7 +174,7 @@ class _ProfileHeader extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(name, style: theme.textTheme.headlineSmall),
+              Text(displayName, style: theme.textTheme.headlineSmall),
               Text(
                 'Reciclador Nivel 4 · Panamá',
                 style: theme.textTheme.bodySmall?.copyWith(

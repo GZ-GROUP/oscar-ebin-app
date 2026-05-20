@@ -1,15 +1,68 @@
 // lib/features/maps/presentation/screens/maps_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
+
 import '../../../../core/constants/app_constants.dart';
 
-class MapsScreen extends ConsumerWidget {
+class MapsScreen extends ConsumerStatefulWidget {
   const MapsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MapsScreen> createState() => _MapsScreenState();
+}
+
+class _MapsScreenState extends ConsumerState<MapsScreen> {
+  LatLng? currentLocation;
+
+  @override
+  void initState() {
+    super.initState();
+    _getCurrentLocation();
+  }
+
+  Future<void> _getCurrentLocation() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+
+    if (!serviceEnabled) {
+      return;
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      return;
+    }
+
+    final position = await Geolocator.getCurrentPosition();
+
+    setState(() {
+      currentLocation = LatLng(
+        position.latitude,
+        position.longitude,
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    // Mientras obtiene ubicación
+    if (currentLocation == null) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -23,37 +76,35 @@ class MapsScreen extends ConsumerWidget {
       ),
       body: Stack(
         children: [
-          // ── Mapa Placeholder ──────────────────────────────────────────────
-          Container(
-            color: const Color(0xFFE8F0E9),
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.map_rounded,
-                    size: 80,
-                    color: AppColors.primary.withOpacity(0.3),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Mapa de Oscaritos',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  Text(
-                    'Integrar Google Maps / Mapbox aquí',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppColors.textDisabled,
+          FlutterMap(
+            options: MapOptions(
+              initialCenter: currentLocation!,
+              initialZoom: 15,
+            ),
+            children: [
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.oscarebin.app',
+                tileProvider: NetworkTileProvider(),
+              ),
+
+              // Marker usuario
+              MarkerLayer(
+                markers: [
+                  Marker(
+                    point: currentLocation!,
+                    width: 80,
+                    height: 80,
+                    child: const Icon(
+                      Icons.my_location_rounded,
+                      size: 40,
+                      color: Colors.blue,
                     ),
                   ),
                 ],
               ),
-            ),
+            ],
           ),
-
-          // ── Bottom Sheet: Lista Cercana ─────────────────────────────────
           Positioned(
             bottom: AppDimens.navBarHeight + AppDimens.navFabSize / 2,
             left: 0,
@@ -63,7 +114,9 @@ class MapsScreen extends ConsumerWidget {
               padding: const EdgeInsets.all(AppDimens.md),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(AppDimens.radiusXl),
+                borderRadius: BorderRadius.circular(
+                  AppDimens.radiusXl,
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.08),
@@ -76,9 +129,17 @@ class MapsScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('Cercanos a ti', style: theme.textTheme.titleMedium),
-                  const SizedBox(height: AppDimens.sm),
-                  ...List.generate(2, (i) => _OscarListTile(index: i)),
+                  Text(
+                    'Cercanos a ti',
+                    style: theme.textTheme.titleMedium,
+                  ),
+                  const SizedBox(
+                    height: AppDimens.sm,
+                  ),
+                  ...List.generate(
+                    2,
+                    (i) => _OscarListTile(index: i),
+                  ),
                 ],
               ),
             ),
@@ -91,11 +152,15 @@ class MapsScreen extends ConsumerWidget {
 
 class _OscarListTile extends StatelessWidget {
   final int index;
-  const _OscarListTile({required this.index});
+
+  const _OscarListTile({
+    required this.index,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -105,7 +170,9 @@ class _OscarListTile extends StatelessWidget {
             height: 44,
             decoration: BoxDecoration(
               color: AppColors.primarySurface,
-              borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+              borderRadius: BorderRadius.circular(
+                AppDimens.radiusMd,
+              ),
             ),
             child: const Icon(
               Icons.delete_outline_rounded,
@@ -130,10 +197,16 @@ class _OscarListTile extends StatelessWidget {
           ),
           ElevatedButton.icon(
             onPressed: () {},
-            icon: const Icon(Icons.navigation_rounded, size: 14),
+            icon: const Icon(
+              Icons.navigation_rounded,
+              size: 14,
+            ),
             label: const Text('IR'),
             style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
+              ),
               textStyle: const TextStyle(fontSize: 12),
             ),
           ),
