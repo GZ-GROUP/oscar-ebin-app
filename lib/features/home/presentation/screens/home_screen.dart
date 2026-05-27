@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../profile/data/profile_model.dart';
 import '../../../profile/providers/profile_provider.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -42,6 +43,9 @@ class HomeScreen extends ConsumerWidget {
       ),
       body: profileStats.when(
         data: (stats) {
+          if (stats == null) {
+            return const Center(child: Text('No hay datos de perfil'));
+          }
           return ListView(
             padding: const EdgeInsets.fromLTRB(
               AppDimens.md,
@@ -79,16 +83,16 @@ class HomeScreen extends ConsumerWidget {
 
 class _EcoSummaryCard extends StatelessWidget {
   final ThemeData theme;
-  final stats;
+  final ProfileStats stats;
   const _EcoSummaryCard({required this.theme, required this.stats});
 
   @override
   Widget build(BuildContext context) {
     // Calculate total trash weight (assuming each item is ~0.35kg for demo)
-    final totalTrashWeight =
-        (stats.trashItemsByType.fold<int>(0, (sum, item) => sum + item.count) *
-                0.35)
-            .toStringAsFixed(1);
+    final totalTrashWeight = (stats.trashItemsByType
+                .fold<int>(0, (int sum, TrashItem item) => sum + item.count) *
+            0.35)
+        .toStringAsFixed(1);
 
     return Container(
       padding: const EdgeInsets.all(AppDimens.lg),
