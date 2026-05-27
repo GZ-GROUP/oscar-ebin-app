@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../providers/scanner_provider.dart';
+import '../../../auth/providers/auth_provider.dart';
 
 class ScannerScreen extends ConsumerStatefulWidget {
   const ScannerScreen({super.key});
@@ -34,17 +36,79 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     if (mounted) setState(() => _torchOn = !_torchOn);
   }
 
-  void _onDetect(BarcodeCapture capture) {
+  Future<void> _onDetect(BarcodeCapture capture) async {
     if (_escaneado) return;
 
     final String? valor = capture.barcodes.firstOrNull?.rawValue;
+    if (valor == null || valor.isEmpty) return;
 
-    if (valor != null && valor.isNotEmpty) {
-      _escaneado = true;
-      HapticFeedback.mediumImpact();
-      _scannerController.stop();
-      _mostrarResultado(valor);
+    _escaneado = true;
+    HapticFeedback.mediumImpact();
+    _scannerController.stop();
+
+    final auth = ref.read(authProvider);
+    if (!auth.isAuthenticated || auth.token == null) {
+      await _mostrarError(
+          'No se encontró una sesión válida. Inicia sesión para continuar.');
+      if (mounted) {
+        setState(() => _escaneado = false);
+        _scannerController.start();
+      }
+      return;
     }
+
+    final service = ref.read(scannerServiceProvider);
+    final result = await service.claimOscar(auth.token!, valor);
+
+    if (!mounted) return;
+
+    if (result.containsKey('error')) {
+      await _mostrarError(result['error'] as String);
+      if (mounted) {
+        setState(() => _escaneado = false);
+        _scannerController.start();
+      }
+      return;
+    }
+
+    _mostrarResultado(_formatClaimResponse(result));
+  }
+
+  Future<void> _mostrarError(String message) async {
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withOpacity(0.6),
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Error'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatClaimResponse(Map<String, dynamic> response) {
+    final session = response['data']?['session'] as Map<String, dynamic>?;
+    final itemCount = response['item_count'];
+    final totalValue = response['total_value'];
+    final sessionId = session?['id']?.toString() ?? 'N/A';
+    final status = session?['status']?.toString() ?? 'N/A';
+    final oscarId = session?['oscar_id']?.toString() ?? 'N/A';
+    final startedAt = session?['started_at']?.toString() ?? 'N/A';
+    final claimedAt = session?['claimed_at']?.toString() ?? 'N/A';
+
+    return 'ID de sesión: $sessionId\n'
+        'ID Oscar: $oscarId\n'
+        'Estado: $status\n'
+        'Items: $itemCount\n'
+        'Total: $totalValue\n'
+        'Inició: $startedAt\n'
+        'Reclamado: $claimedAt';
   }
 
   // ── CORRECCIÓN PRINCIPAL ──────────────────────────────────────────────────
