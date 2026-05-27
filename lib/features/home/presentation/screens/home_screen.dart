@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../profile/providers/profile_provider.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -12,6 +13,7 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final auth = ref.watch(authProvider);
+    final profileStats = ref.watch(profileStatsProvider);
     final displayName = auth.name ?? 'Reciclador';
 
     return Scaffold(
@@ -38,30 +40,38 @@ class HomeScreen extends ConsumerWidget {
           const SizedBox(width: 4),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          AppDimens.md,
-          AppDimens.sm,
-          AppDimens.md,
-          // Bottom padding to avoid content behind the nav bar
-          AppDimens.navBarHeight + AppDimens.navFabSize / 2 + AppDimens.lg,
+      body: profileStats.when(
+        data: (stats) {
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(
+              AppDimens.md,
+              AppDimens.sm,
+              AppDimens.md,
+              // Bottom padding to avoid content behind the nav bar
+              AppDimens.navBarHeight + AppDimens.navFabSize / 2 + AppDimens.lg,
+            ),
+            children: [
+              // ── Puntos Card ─────────────────────────────────────────────────
+              _EcoSummaryCard(theme: theme, stats: stats),
+              const SizedBox(height: AppDimens.md),
+
+              // ── Quick Actions ────────────────────────────────────────────────
+              Text('Acciones rápidas', style: theme.textTheme.titleMedium),
+              const SizedBox(height: AppDimens.sm),
+              _QuickActionsRow(theme: theme),
+              const SizedBox(height: AppDimens.lg),
+
+              // ── Actividad Reciente ───────────────────────────────────────────
+              Text('Actividad reciente', style: theme.textTheme.titleMedium),
+              const SizedBox(height: AppDimens.sm),
+              _RecentActivityPlaceholder(theme: theme),
+            ],
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(
+          child: Text('Error: $err'),
         ),
-        children: [
-          // ── Puntos Card ─────────────────────────────────────────────────
-          _EcoSummaryCard(theme: theme),
-          const SizedBox(height: AppDimens.md),
-
-          // ── Quick Actions ────────────────────────────────────────────────
-          Text('Acciones rápidas', style: theme.textTheme.titleMedium),
-          const SizedBox(height: AppDimens.sm),
-          _QuickActionsRow(theme: theme),
-          const SizedBox(height: AppDimens.lg),
-
-          // ── Actividad Reciente ───────────────────────────────────────────
-          Text('Actividad reciente', style: theme.textTheme.titleMedium),
-          const SizedBox(height: AppDimens.sm),
-          _RecentActivityPlaceholder(theme: theme),
-        ],
       ),
     );
   }
@@ -69,10 +79,17 @@ class HomeScreen extends ConsumerWidget {
 
 class _EcoSummaryCard extends StatelessWidget {
   final ThemeData theme;
-  const _EcoSummaryCard({required this.theme});
+  final stats;
+  const _EcoSummaryCard({required this.theme, required this.stats});
 
   @override
   Widget build(BuildContext context) {
+    // Calculate total trash weight (assuming each item is ~0.35kg for demo)
+    final totalTrashWeight =
+        (stats.trashItemsByType.fold<int>(0, (sum, item) => sum + item.count) *
+                0.35)
+            .toStringAsFixed(1);
+
     return Container(
       padding: const EdgeInsets.all(AppDimens.lg),
       decoration: BoxDecoration(
@@ -107,7 +124,7 @@ class _EcoSummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            '1,240',
+            stats.pointsEarnedTotal.toString(),
             style: theme.textTheme.displayMedium?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.w800,
@@ -117,9 +134,12 @@ class _EcoSummaryCard extends StatelessWidget {
           const SizedBox(height: AppDimens.md),
           Row(
             children: [
-              _StatChip(label: '12 sesiones', icon: Icons.recycling_rounded),
+              _StatChip(
+                  label: '${stats.sessionsCompleted} sesiones',
+                  icon: Icons.recycling_rounded),
               const SizedBox(width: AppDimens.sm),
-              _StatChip(label: '4.2 kg', icon: Icons.scale_rounded),
+              _StatChip(
+                  label: '${totalTrashWeight} kg', icon: Icons.scale_rounded),
             ],
           ),
         ],

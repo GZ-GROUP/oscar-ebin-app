@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../auth/providers/auth_provider.dart';
 import 'package:go_router/go_router.dart';
+import '../../providers/profile_provider.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -12,6 +13,7 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final profileStats = ref.watch(profileStatsProvider);
 
     final items1 = [
       _MenuItem(
@@ -56,43 +58,52 @@ class ProfileScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: ListView(
-        padding: EdgeInsets.fromLTRB(
-          AppDimens.md,
-          AppDimens.sm,
-          AppDimens.md,
-          AppDimens.navBarHeight + AppDimens.navFabSize / 2 + AppDimens.lg,
+      body: profileStats.when(
+        data: (stats) {
+          return ListView(
+            padding: EdgeInsets.fromLTRB(
+              AppDimens.md,
+              AppDimens.sm,
+              AppDimens.md,
+              AppDimens.navBarHeight + AppDimens.navFabSize / 2 + AppDimens.lg,
+            ),
+            children: [
+              // ── Avatar + Name ───────────────────────────────────────────────
+              _ProfileHeader(theme: theme, stats: stats),
+              const SizedBox(height: AppDimens.lg),
+
+              // ── Points Summary ───────────────────────────────────────────────
+              _PointsSummary(theme: theme, stats: stats),
+              const SizedBox(height: AppDimens.lg),
+
+              // ── Menu Sections ────────────────────────────────────────────────
+              _MenuSection(title: 'Mi actividad', items: items1),
+              const SizedBox(height: AppDimens.md),
+              _MenuSection(
+                  title: 'Cuenta',
+                  items: items2.map((it) {
+                    // attach logout callback to the logout item
+                    if (it.label == 'Cerrar sesión') {
+                      return _MenuItem(
+                          icon: it.icon,
+                          label: it.label,
+                          color: it.color,
+                          onTap: () async {
+                            final notifier = ref.read(authProvider.notifier);
+                            await notifier.logout();
+                            if (context.mounted)
+                              context.go(AppRoutes.onboarding);
+                          });
+                    }
+                    return it;
+                  }).toList()),
+            ],
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(
+          child: Text('Error: $err'),
         ),
-        children: [
-          // ── Avatar + Name ───────────────────────────────────────────────
-          _ProfileHeader(theme: theme),
-          const SizedBox(height: AppDimens.lg),
-
-          // ── Points Summary ───────────────────────────────────────────────
-          _PointsSummary(theme: theme),
-          const SizedBox(height: AppDimens.lg),
-
-          // ── Menu Sections ────────────────────────────────────────────────
-          _MenuSection(title: 'Mi actividad', items: items1),
-          const SizedBox(height: AppDimens.md),
-          _MenuSection(
-              title: 'Cuenta',
-              items: items2.map((it) {
-                // attach logout callback to the logout item
-                if (it.label == 'Cerrar sesión') {
-                  return _MenuItem(
-                      icon: it.icon,
-                      label: it.label,
-                      color: it.color,
-                      onTap: () async {
-                        final notifier = ref.read(authProvider.notifier);
-                        await notifier.logout();
-                        if (context.mounted) context.go(AppRoutes.onboarding);
-                      });
-                }
-                return it;
-              }).toList()),
-        ],
       ),
     );
   }
@@ -100,7 +111,8 @@ class ProfileScreen extends ConsumerWidget {
 
 class _ProfileHeader extends ConsumerWidget {
   final ThemeData theme;
-  const _ProfileHeader({required this.theme});
+  final stats;
+  const _ProfileHeader({required this.theme, required this.stats});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -208,14 +220,27 @@ class _ProfileHeader extends ConsumerWidget {
 
 class _PointsSummary extends StatelessWidget {
   final ThemeData theme;
-  const _PointsSummary({required this.theme});
+  final stats;
+  const _PointsSummary({required this.theme, required this.stats});
 
   @override
   Widget build(BuildContext context) {
-    final stats = [
-      ('1,240', 'Puntos\ntotales', Icons.stars_rounded),
-      ('12', 'Sesiones\ncompletadas', Icons.recycling_rounded),
-      ('3', 'Recompensas\ncanjeadas', Icons.card_giftcard_rounded),
+    final stats_data = [
+      (
+        stats.pointsEarnedTotal.toString(),
+        'Puntos\ntotales',
+        Icons.stars_rounded
+      ),
+      (
+        stats.sessionsCompleted.toString(),
+        'Sesiones\ncompletadas',
+        Icons.recycling_rounded
+      ),
+      (
+        stats.rewardsClaimed.toString(),
+        'Recompensas\ncanjeadas',
+        Icons.card_giftcard_rounded
+      ),
     ];
 
     return Container(
@@ -226,7 +251,7 @@ class _PointsSummary extends StatelessWidget {
         border: Border.all(color: const Color(0xFFE2ECE7)),
       ),
       child: Row(
-        children: stats.map((s) {
+        children: stats_data.map((s) {
           return Expanded(
             child: Column(
               children: [
