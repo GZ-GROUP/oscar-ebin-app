@@ -58,9 +58,9 @@ class ProfileStats {
   final UserProfile user;
   final int sessionsCompleted;
   final int rewardsClaimed;
-  final int pointsAvailable;
-  final int pointsEarnedTotal;
-  final int pointsEarnedLastMonth;
+  final double pointsAvailable;
+  final double pointsEarnedTotal;
+  final double pointsEarnedLastMonth;
   final List<TrashItem> trashItemsByType;
 
   ProfileStats({
@@ -79,9 +79,15 @@ class ProfileStats {
       user: UserProfile.fromJson(data['user'] as Map<String, dynamic>),
       sessionsCompleted: data['sessions_completed'] as int,
       rewardsClaimed: data['rewards_claimed'] as int,
-      pointsAvailable: data['points_available'] as int,
-      pointsEarnedTotal: data['points_earned_total'] as int,
-      pointsEarnedLastMonth: data['points_earned_last_month'] as int,
+      pointsAvailable: (data['points_available'] is int)
+          ? (data['points_available'] as int).toDouble()
+          : data['points_available'] as double,
+      pointsEarnedTotal: (data['points_earned_total'] is int)
+          ? (data['points_earned_total'] as int).toDouble()
+          : data['points_earned_total'] as double,
+      pointsEarnedLastMonth: (data['points_earned_last_month'] is int)
+          ? (data['points_earned_last_month'] as int).toDouble()
+          : data['points_earned_last_month'] as double,
       trashItemsByType: (data['trash_items_by_type'] as List<dynamic>)
           .map((item) => TrashItem.fromJson(item as Map<String, dynamic>))
           .toList(),

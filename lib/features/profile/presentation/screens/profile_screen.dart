@@ -227,7 +227,7 @@ class _PointsSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     final stats_data = [
       (
-        stats.pointsEarnedTotal.toString(),
+        stats.pointsEarnedTotal.toStringAsFixed(2),
         'Puntos\ntotales',
         Icons.stars_rounded
       ),
