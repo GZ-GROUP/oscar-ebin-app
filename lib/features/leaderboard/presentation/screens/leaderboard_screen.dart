@@ -3,35 +3,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../data/ranking_model.dart';
+import '../../providers/leaderboard_provider.dart';
 
-class LeaderboardScreen extends ConsumerStatefulWidget {
+class LeaderboardScreen extends ConsumerWidget {
   const LeaderboardScreen({super.key});
 
   @override
-  ConsumerState<LeaderboardScreen> createState() => _LeaderboardScreenState();
-}
-
-class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  final _tabs = const ['Personas', 'Empresas', 'Oscaritos'];
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: _tabs.length, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final rankingData = ref.watch(rankingProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -42,18 +23,36 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen>
             onPressed: () {},
           ),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: AppColors.primary,
-          unselectedLabelColor: AppColors.textSecondary,
-          indicatorColor: AppColors.primary,
-          indicatorWeight: 3,
-          tabs: _tabs.map((t) => Tab(text: t)).toList(),
-        ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: _tabs.map((_) => _RankingList(theme: theme)).toList(),
+      body: rankingData.when(
+        data: (ranking) {
+          if (ranking == null || ranking.entries.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.leaderboard_rounded,
+                    size: 64,
+                    color: AppColors.textSecondary.withOpacity(0.5),
+                  ),
+                  const SizedBox(height: AppDimens.md),
+                  Text(
+                    'No hay ranking disponible',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+          return _RankingList(theme: theme, entries: ranking.entries);
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(
+          child: Text('Error: $err'),
+        ),
       ),
     );
   }
@@ -61,15 +60,16 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen>
 
 class _RankingList extends StatelessWidget {
   final ThemeData theme;
-  const _RankingList({required this.theme});
+  final List<RankingEntry> entries;
+  const _RankingList({required this.theme, required this.entries});
 
   @override
   Widget build(BuildContext context) {
-    final topThree = [
-      ('🥇', 'Ana García', '4,820 pts'),
-      ('🥈', 'Carlos López', '3,640 pts'),
-      ('🥉', 'María Ruiz', '2,910 pts'),
-    ];
+    // Filtrar y separar top 3 del resto
+    final validEntries =
+        entries.where((e) => e.displayName.isNotEmpty).toList();
+    final topThree = validEntries.take(3).toList();
+    final rest = validEntries.skip(3).toList();
 
     return ListView(
       padding: EdgeInsets.fromLTRB(
@@ -79,24 +79,43 @@ class _RankingList extends StatelessWidget {
         AppDimens.navBarHeight + AppDimens.navFabSize / 2 + AppDimens.lg,
       ),
       children: [
-        // Top 3 podium
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            _PodiumItem(medal: '🥈', name: 'Carlos', pts: '3,640', height: 80),
-            _PodiumItem(medal: '🥇', name: 'Ana', pts: '4,820', height: 110),
-            _PodiumItem(medal: '🥉', name: 'María', pts: '2,910', height: 64),
-          ],
-        ),
-        const SizedBox(height: AppDimens.lg),
+        // Top 3 podium (si hay suficientes elementos)
+        if (topThree.isNotEmpty)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (topThree.length > 1)
+                _PodiumItem(
+                  medal: '🥈',
+                  entry: topThree[1],
+                  height: 80,
+                )
+              else
+                const SizedBox(width: 72),
+              if (topThree.isNotEmpty)
+                _PodiumItem(
+                  medal: '🥇',
+                  entry: topThree[0],
+                  height: 110,
+                ),
+              if (topThree.length > 2)
+                _PodiumItem(
+                  medal: '🥉',
+                  entry: topThree[2],
+                  height: 64,
+                )
+              else
+                const SizedBox(width: 72),
+            ],
+          ),
+        if (topThree.isNotEmpty) const SizedBox(height: AppDimens.lg),
         // Rest of ranking
-        ...List.generate(7, (i) {
+        ...List.generate(rest.length, (i) {
+          final entry = rest[i];
           return _RankingTile(
             position: i + 4,
-            name: 'Usuario ${i + 4}',
-            pts: '${(10 - i) * 200} pts',
-            isMe: i == 3,
+            entry: entry,
           );
         }),
       ],
@@ -106,13 +125,11 @@ class _RankingList extends StatelessWidget {
 
 class _PodiumItem extends StatelessWidget {
   final String medal;
-  final String name;
-  final String pts;
+  final RankingEntry entry;
   final double height;
   const _PodiumItem({
     required this.medal,
-    required this.name,
-    required this.pts,
+    required this.entry,
     required this.height,
   });
 
@@ -124,11 +141,12 @@ class _PodiumItem extends StatelessWidget {
         Text(medal, style: const TextStyle(fontSize: 28)),
         const SizedBox(height: 4),
         Text(
-          name,
+          entry.displayName,
           style: theme.textTheme.labelLarge,
           overflow: TextOverflow.ellipsis,
         ),
-        Text(pts, style: theme.textTheme.bodySmall),
+        Text('${entry.pointsAsDouble.toStringAsFixed(2)} pts',
+            style: theme.textTheme.bodySmall),
         const SizedBox(height: 4),
         Container(
           width: 72,
@@ -148,19 +166,16 @@ class _PodiumItem extends StatelessWidget {
 
 class _RankingTile extends StatelessWidget {
   final int position;
-  final String name;
-  final String pts;
-  final bool isMe;
+  final RankingEntry entry;
   const _RankingTile({
     required this.position,
-    required this.name,
-    required this.pts,
-    this.isMe = false,
+    required this.entry,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(
@@ -168,11 +183,11 @@ class _RankingTile extends StatelessWidget {
         vertical: AppDimens.sm + 2,
       ),
       decoration: BoxDecoration(
-        color: isMe ? AppColors.primarySurface : Colors.white,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(AppDimens.radiusMd),
         border: Border.all(
-          color: isMe ? AppColors.primary : const Color(0xFFE2ECE7),
-          width: isMe ? 1.5 : 1,
+          color: const Color(0xFFE2ECE7),
+          width: 1,
         ),
       ),
       child: Row(
@@ -191,7 +206,7 @@ class _RankingTile extends StatelessWidget {
             radius: 18,
             backgroundColor: AppColors.primary.withOpacity(0.15),
             child: Text(
-              name[0],
+              entry.displayName.isNotEmpty ? entry.displayName[0] : '?',
               style: const TextStyle(
                 color: AppColors.primary,
                 fontWeight: FontWeight.w700,
@@ -201,12 +216,12 @@ class _RankingTile extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              isMe ? '$name (Tú)' : name,
+              entry.displayName,
               style: theme.textTheme.titleSmall,
             ),
           ),
           Text(
-            pts,
+            '${entry.pointsAsDouble.toStringAsFixed(2)} pts',
             style: theme.textTheme.titleSmall?.copyWith(
               color: AppColors.primary,
               fontWeight: FontWeight.w700,

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../profile/data/profile_model.dart';
+import '../../leaderboard/data/ranking_model.dart';
 
 class AuthService {
   static const _baseUrl = 'https://oscar.gzgroup.dev/api';
@@ -82,6 +83,21 @@ class AuthService {
     if (resp.statusCode >= 200 && resp.statusCode < 300) {
       final json = jsonDecode(resp.body) as Map<String, dynamic>;
       return ProfileStats.fromJson(json);
+    }
+    return null;
+  }
+
+  Future<RankingResponse?> ranking(String accessToken) async {
+    final url = Uri.parse('$_baseUrl/ranking');
+    final resp = await client.get(url, headers: {
+      'content-type': 'application/json',
+      'accept': 'application/json',
+      'authorization': 'Bearer $accessToken',
+    });
+
+    if (resp.statusCode >= 200 && resp.statusCode < 300) {
+      final json = jsonDecode(resp.body) as Map<String, dynamic>;
+      return RankingResponse.fromJson(json);
     }
     return null;
   }
