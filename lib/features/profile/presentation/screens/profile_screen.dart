@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../auth/providers/auth_provider.dart';
 import 'package:go_router/go_router.dart';
+import '../../data/profile_model.dart';
 import '../../providers/profile_provider.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -60,6 +61,9 @@ class ProfileScreen extends ConsumerWidget {
       ),
       body: profileStats.when(
         data: (stats) {
+          if (stats == null) {
+            return const Center(child: Text('No hay datos de perfil'));
+          }
           return ListView(
             padding: EdgeInsets.fromLTRB(
               AppDimens.md,
@@ -111,7 +115,7 @@ class ProfileScreen extends ConsumerWidget {
 
 class _ProfileHeader extends ConsumerWidget {
   final ThemeData theme;
-  final stats;
+  final ProfileStats stats;
   const _ProfileHeader({required this.theme, required this.stats});
 
   @override
@@ -220,7 +224,7 @@ class _ProfileHeader extends ConsumerWidget {
 
 class _PointsSummary extends StatelessWidget {
   final ThemeData theme;
-  final stats;
+  final ProfileStats stats;
   const _PointsSummary({required this.theme, required this.stats});
 
   @override
