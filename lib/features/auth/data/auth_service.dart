@@ -87,13 +87,17 @@ class AuthService {
     return null;
   }
 
-  Future<RankingResponse?> ranking(String accessToken) async {
+  Future<RankingResponse?> ranking([String? accessToken]) async {
     final url = Uri.parse('$_baseUrl/ranking');
-    final resp = await client.get(url, headers: {
+    final headers = {
       'content-type': 'application/json',
       'accept': 'application/json',
-      'authorization': 'Bearer $accessToken',
-    });
+    };
+    if (accessToken != null) {
+      headers['authorization'] = 'Bearer $accessToken';
+    }
+
+    final resp = await client.get(url, headers: headers);
 
     if (resp.statusCode >= 200 && resp.statusCode < 300) {
       final json = jsonDecode(resp.body) as Map<String, dynamic>;

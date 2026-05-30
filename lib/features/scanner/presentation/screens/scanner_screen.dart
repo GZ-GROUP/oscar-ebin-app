@@ -57,10 +57,18 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       return;
     }
 
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
     final service = ref.read(scannerServiceProvider);
     final result = await service.claimOscar(auth.token!, valor);
 
     if (!mounted) return;
+
+    Navigator.of(context).pop();
 
     if (result.containsKey('error')) {
       await _mostrarError(result['error'] as String);
@@ -93,22 +101,21 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   }
 
   String _formatClaimResponse(Map<String, dynamic> response) {
-    final session = response['data']?['session'] as Map<String, dynamic>?;
-    final itemCount = response['item_count'];
-    final totalValue = response['total_value'];
-    final sessionId = session?['id']?.toString() ?? 'N/A';
-    final status = session?['status']?.toString() ?? 'N/A';
-    final oscarId = session?['oscar_id']?.toString() ?? 'N/A';
-    final startedAt = session?['started_at']?.toString() ?? 'N/A';
-    final claimedAt = session?['claimed_at']?.toString() ?? 'N/A';
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    final itemCount = response['item_count'] ?? 0;
+    final pointsValue =
+        data['points'] ?? data['points_earned'] ?? data['total_value'] ?? 0;
+    final pointsText = pointsValue is num
+        ? pointsValue.toStringAsFixed(2)
+        : pointsValue.toString();
+    final oscarName = data['oscar_name'] as String? ??
+        data['oscar_code'] as String? ??
+        'Oscar';
 
-    return 'ID de sesión: $sessionId\n'
-        'ID Oscar: $oscarId\n'
-        'Estado: $status\n'
-        'Items: $itemCount\n'
-        'Total: $totalValue\n'
-        'Inició: $startedAt\n'
-        'Reclamado: $claimedAt';
+    return '¡Reclamo exitoso!\n'
+        'Puntos obtenidos: $pointsText\n'
+        'Items reciclados: $itemCount\n'
+        'Oscar: $oscarName';
   }
 
   // ── CORRECCIÓN PRINCIPAL ──────────────────────────────────────────────────

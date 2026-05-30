@@ -11,14 +11,13 @@ class MapsService {
 
   MapsService({http.Client? client}) : client = client ?? http.Client();
 
-  Future<List<Oscar>> getOscarLocations(String accessToken) async {
+  Future<List<Oscar>> getOscarLocations() async {
     final url = Uri.parse('$_baseUrl/oscar/location');
     final resp = await client.get(
       url,
       headers: {
         'content-type': 'application/json',
         'accept': 'application/json',
-        'authorization': 'Bearer $accessToken',
       },
     );
 

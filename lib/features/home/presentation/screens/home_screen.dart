@@ -2,9 +2,12 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../profile/data/history_model.dart';
 import '../../../profile/data/profile_model.dart';
+import '../../../profile/providers/history_provider.dart';
 import '../../../profile/providers/profile_provider.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -15,7 +18,7 @@ class HomeScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final auth = ref.watch(authProvider);
     final profileStats = ref.watch(profileStatsProvider);
-    final displayName = auth.name ?? 'Reciclador';
+    final historyState = ref.watch(historyProvider);
 
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
@@ -23,8 +26,7 @@ class HomeScreen extends ConsumerWidget {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('¡Hola, $displayName! 👋',
-                style: theme.textTheme.headlineSmall),
+            Text('¡Hola! 👋', style: theme.textTheme.headlineSmall),
             Text(
               'Resumen de hoy',
               style: theme.textTheme.bodySmall?.copyWith(
@@ -46,30 +48,48 @@ class HomeScreen extends ConsumerWidget {
           if (stats == null) {
             return const Center(child: Text('No hay datos de perfil'));
           }
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(
-              AppDimens.md,
-              AppDimens.sm,
-              AppDimens.md,
-              // Bottom padding to avoid content behind the nav bar
-              AppDimens.navBarHeight + AppDimens.navFabSize / 2 + AppDimens.lg,
+
+          final displayName = stats.user.name.isNotEmpty
+              ? stats.user.name
+              : auth.name ?? 'Reciclador';
+
+          return RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(profileStatsProvider);
+              ref.invalidate(historyProvider);
+              await ref.read(profileStatsProvider.future);
+            },
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(
+                AppDimens.md,
+                AppDimens.sm,
+                AppDimens.md,
+                AppDimens.navBarHeight +
+                    AppDimens.navFabSize / 2 +
+                    AppDimens.lg,
+              ),
+              children: [
+                Text('¡Hola, $displayName! 👋',
+                    style: theme.textTheme.headlineSmall),
+                const SizedBox(height: AppDimens.sm),
+                // ── Puntos Card ─────────────────────────────────────────────────
+                _EcoSummaryCard(theme: theme, stats: stats),
+                const SizedBox(height: AppDimens.md),
+
+                // ── Quick Actions ────────────────────────────────────────────────
+                Text('Acciones rápidas', style: theme.textTheme.titleMedium),
+                const SizedBox(height: AppDimens.sm),
+                _QuickActionsRow(theme: theme),
+                const SizedBox(height: AppDimens.lg),
+
+                // ── Actividad Reciente ───────────────────────────────────────────
+                Text('Actividad reciente', style: theme.textTheme.titleMedium),
+                const SizedBox(height: AppDimens.sm),
+                _RecentActivitySection(
+                    theme: theme, historyState: historyState),
+              ],
             ),
-            children: [
-              // ── Puntos Card ─────────────────────────────────────────────────
-              _EcoSummaryCard(theme: theme, stats: stats),
-              const SizedBox(height: AppDimens.md),
-
-              // ── Quick Actions ────────────────────────────────────────────────
-              Text('Acciones rápidas', style: theme.textTheme.titleMedium),
-              const SizedBox(height: AppDimens.sm),
-              _QuickActionsRow(theme: theme),
-              const SizedBox(height: AppDimens.lg),
-
-              // ── Actividad Reciente ───────────────────────────────────────────
-              Text('Actividad reciente', style: theme.textTheme.titleMedium),
-              const SizedBox(height: AppDimens.sm),
-              _RecentActivityPlaceholder(theme: theme),
-            ],
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -191,9 +211,24 @@ class _QuickActionsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final actions = [
-      (Icons.card_giftcard_rounded, 'Recompensas', AppColors.accentAmber),
-      (Icons.map_rounded, 'Oscarito\ncercano', AppColors.accentTeal),
-      (Icons.insights_rounded, 'Métricas', AppColors.accentPurple),
+      (
+        Icons.card_giftcard_rounded,
+        'Recompensas',
+        AppColors.accentAmber,
+        () {},
+      ),
+      (
+        Icons.map_rounded,
+        'Oscarito\ncercano',
+        AppColors.accentTeal,
+        () => context.go(AppRoutes.localizador),
+      ),
+      (
+        Icons.insights_rounded,
+        'Métricas',
+        AppColors.accentPurple,
+        () {},
+      ),
     ];
 
     return Row(
@@ -201,7 +236,12 @@ class _QuickActionsRow extends StatelessWidget {
         return Expanded(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: _QuickActionCard(icon: a.$1, label: a.$2, color: a.$3),
+            child: _QuickActionCard(
+              icon: a.$1,
+              label: a.$2,
+              color: a.$3,
+              onTap: a.$4,
+            ),
           ),
         );
       }).toList(),
@@ -213,16 +253,18 @@ class _QuickActionCard extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color color;
+  final VoidCallback? onTap;
   const _QuickActionCard({
     required this.icon,
     required this.label,
     required this.color,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () {},
+      onTap: onTap,
       borderRadius: BorderRadius.circular(AppDimens.radiusLg),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: AppDimens.md),
@@ -251,9 +293,13 @@ class _QuickActionCard extends StatelessWidget {
   }
 }
 
-class _RecentActivityPlaceholder extends StatelessWidget {
+class _RecentActivitySection extends StatelessWidget {
   final ThemeData theme;
-  const _RecentActivityPlaceholder({required this.theme});
+  final AsyncValue<List<HistoryEntry>> historyState;
+  const _RecentActivitySection({
+    required this.theme,
+    required this.historyState,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -264,45 +310,81 @@ class _RecentActivityPlaceholder extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppDimens.radiusLg),
         border: Border.all(color: const Color(0xFFE2ECE7)),
       ),
-      child: Column(
-        children: List.generate(3, (i) {
-          return Padding(
-            padding: EdgeInsets.only(bottom: i < 2 ? 12 : 0),
-            child: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppColors.primarySurface,
-                    borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-                  ),
-                  child: const Icon(
-                    Icons.recycling_rounded,
-                    color: AppColors.primary,
-                    size: 20,
+      child: historyState.when(
+        data: (entries) {
+          if (entries.isEmpty) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppDimens.lg),
+              child: Center(
+                child: Text(
+                  'Aún no hay actividad reciente',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.textSecondary,
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Sesión de reciclaje',
-                        style: theme.textTheme.titleSmall,
+              ),
+            );
+          }
+          return Column(
+            children: entries.asMap().entries.map((entry) {
+              final index = entry.key;
+              final history = entry.value;
+              return Padding(
+                padding: EdgeInsets.only(
+                    bottom: index < entries.length - 1 ? 12 : 0),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppColors.primarySurface,
+                        borderRadius: BorderRadius.circular(AppDimens.radiusMd),
                       ),
-                      Text(
-                        '+${(i + 1) * 30} pts · hace ${i + 1}h',
-                        style: theme.textTheme.bodySmall,
+                      child: Icon(
+                        history.type == 'credit' ? Icons.add : Icons.remove,
+                        color: AppColors.primary,
+                        size: 20,
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            history.description,
+                            style: theme.textTheme.titleSmall,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${history.oscarName ?? 'Oscar'} · ${history.amount.toStringAsFixed(0)} ${history.currency} · ${history.createdAt}',
+                            style: theme.textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              );
+            }).toList(),
           );
-        }),
+        },
+        loading: () => const Padding(
+          padding: EdgeInsets.symmetric(vertical: AppDimens.lg),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+        error: (err, stack) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppDimens.lg),
+          child: Center(
+            child: Text(
+              'No se pudo cargar la actividad',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

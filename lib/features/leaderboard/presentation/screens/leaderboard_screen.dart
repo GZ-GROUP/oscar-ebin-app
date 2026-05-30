@@ -19,39 +19,64 @@ class LeaderboardScreen extends ConsumerWidget {
         title: const Text('Ranking'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.workspace_premium_rounded),
-            onPressed: () {},
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: () async {
+              ref.invalidate(rankingProvider);
+              await ref.read(rankingProvider.future);
+            },
           ),
         ],
       ),
-      body: rankingData.when(
-        data: (ranking) {
-          if (ranking == null || ranking.entries.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(rankingProvider);
+          await ref.read(rankingProvider.future);
+        },
+        child: rankingData.when(
+          data: (ranking) {
+            if (ranking == null || ranking.entries.isEmpty) {
+              return ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 children: [
-                  Icon(
-                    Icons.leaderboard_rounded,
-                    size: 64,
-                    color: AppColors.textSecondary.withOpacity(0.5),
-                  ),
-                  const SizedBox(height: AppDimens.md),
-                  Text(
-                    'No hay ranking disponible',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: AppColors.textSecondary,
+                  const SizedBox(height: 32),
+                  Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.leaderboard_rounded,
+                          size: 64,
+                          color: AppColors.textSecondary.withOpacity(0.5),
+                        ),
+                        const SizedBox(height: AppDimens.md),
+                        Text(
+                          'No hay ranking disponible',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
-              ),
-            );
-          }
-          return _RankingList(theme: theme, entries: ranking.entries);
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(
-          child: Text('Error: $err'),
+              );
+            }
+            return _RankingList(theme: theme, entries: ranking.entries);
+          },
+          loading: () => ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: const [
+              SizedBox(height: 32),
+              Center(child: CircularProgressIndicator()),
+            ],
+          ),
+          error: (err, stack) => ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [
+              const SizedBox(height: 32),
+              Center(child: Text('Error: $err')),
+            ],
+          ),
         ),
       ),
     );

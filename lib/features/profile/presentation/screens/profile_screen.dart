@@ -64,44 +64,53 @@ class ProfileScreen extends ConsumerWidget {
           if (stats == null) {
             return const Center(child: Text('No hay datos de perfil'));
           }
-          return ListView(
-            padding: EdgeInsets.fromLTRB(
-              AppDimens.md,
-              AppDimens.sm,
-              AppDimens.md,
-              AppDimens.navBarHeight + AppDimens.navFabSize / 2 + AppDimens.lg,
+          return RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(profileStatsProvider);
+              await ref.read(profileStatsProvider.future);
+            },
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.fromLTRB(
+                AppDimens.md,
+                AppDimens.sm,
+                AppDimens.md,
+                AppDimens.navBarHeight +
+                    AppDimens.navFabSize / 2 +
+                    AppDimens.lg,
+              ),
+              children: [
+                // ── Avatar + Name ───────────────────────────────────────────────
+                _ProfileHeader(theme: theme, stats: stats),
+                const SizedBox(height: AppDimens.lg),
+
+                // ── Points Summary ───────────────────────────────────────────────
+                _PointsSummary(theme: theme, stats: stats),
+                const SizedBox(height: AppDimens.lg),
+
+                // ── Menu Sections ────────────────────────────────────────────────
+                _MenuSection(title: 'Mi actividad', items: items1),
+                const SizedBox(height: AppDimens.md),
+                _MenuSection(
+                    title: 'Cuenta',
+                    items: items2.map((it) {
+                      // attach logout callback to the logout item
+                      if (it.label == 'Cerrar sesión') {
+                        return _MenuItem(
+                            icon: it.icon,
+                            label: it.label,
+                            color: it.color,
+                            onTap: () async {
+                              final notifier = ref.read(authProvider.notifier);
+                              await notifier.logout();
+                              if (context.mounted)
+                                context.go(AppRoutes.onboarding);
+                            });
+                      }
+                      return it;
+                    }).toList()),
+              ],
             ),
-            children: [
-              // ── Avatar + Name ───────────────────────────────────────────────
-              _ProfileHeader(theme: theme, stats: stats),
-              const SizedBox(height: AppDimens.lg),
-
-              // ── Points Summary ───────────────────────────────────────────────
-              _PointsSummary(theme: theme, stats: stats),
-              const SizedBox(height: AppDimens.lg),
-
-              // ── Menu Sections ────────────────────────────────────────────────
-              _MenuSection(title: 'Mi actividad', items: items1),
-              const SizedBox(height: AppDimens.md),
-              _MenuSection(
-                  title: 'Cuenta',
-                  items: items2.map((it) {
-                    // attach logout callback to the logout item
-                    if (it.label == 'Cerrar sesión') {
-                      return _MenuItem(
-                          icon: it.icon,
-                          label: it.label,
-                          color: it.color,
-                          onTap: () async {
-                            final notifier = ref.read(authProvider.notifier);
-                            await notifier.logout();
-                            if (context.mounted)
-                              context.go(AppRoutes.onboarding);
-                          });
-                    }
-                    return it;
-                  }).toList()),
-            ],
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -121,8 +130,8 @@ class _ProfileHeader extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authProvider);
-    final name = auth.name?.trim();
-    final displayName = (name?.isEmpty ?? true) ? 'Reciclador' : name!;
+    final name = stats.user.name.trim();
+    final displayName = name.isEmpty ? auth.name?.trim() ?? 'Reciclador' : name;
     String initials() {
       final parts = displayName
           .trim()
