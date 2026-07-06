@@ -18,6 +18,7 @@ import '../../features/auth/presentation/screens/onboarding_screen.dart';
 import '../../features/auth/presentation/screens/signup_screen.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
 import '../../features/auth/providers/auth_provider.dart';
+import '../../features/rewards/presentation/screens/rewards_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  NAVIGATOR KEYS
@@ -101,6 +102,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             name: 'home',
             pageBuilder: (context, state) =>
                 _fadeTransition(state: state, child: const HomeScreen()),
+          ),
+
+          // ── RECOMPENSAS (sub-ruta de Home) ───────────────────────────────
+          GoRoute(
+            path: AppRoutes.recompensas,
+            name: 'recompensas',
+            pageBuilder: (context, state) =>
+                _fadeTransition(state: state, child: const RewardsScreen()),
           ),
 
           // ── LOCALIZADOR ───────────────────────────────────────────────────

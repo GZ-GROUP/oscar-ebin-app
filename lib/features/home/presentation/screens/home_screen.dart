@@ -215,7 +215,7 @@ class _QuickActionsRow extends StatelessWidget {
         Icons.card_giftcard_rounded,
         'Recompensas',
         AppColors.accentAmber,
-        () {},
+        () => context.push(AppRoutes.recompensas),
       ),
       (
         Icons.map_rounded,
