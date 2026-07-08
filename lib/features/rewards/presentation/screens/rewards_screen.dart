@@ -302,8 +302,10 @@ class _RewardsBody extends ConsumerWidget {
 
     final canjeadasVM = purchased.map((c) {
       final subtitleParts = <String>[
-        if (c.code != null) 'Código: ${c.code}',
-        if (c.claimCreatedAt != null) 'el ${_fmtDate(c.claimCreatedAt)}',
+        if (c.code != null && c.code!.isNotEmpty)
+          'Código: ${_formatRedeemCode(c.code!)}',
+        if (c.claimCreatedAt != null)
+          'el ${_fmtDate(c.claimCreatedAt)}',
       ];
       return _CardVM(
         title: c.reward.name,
