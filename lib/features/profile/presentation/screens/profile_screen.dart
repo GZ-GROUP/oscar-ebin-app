@@ -38,7 +38,8 @@ class ProfileScreen extends ConsumerWidget {
       _MenuItem(
           icon: Icons.insights_rounded,
           label: 'Métricas personales',
-          color: AppColors.accentPurple),
+          color: AppColors.accentPurple,
+          onTap: () => context.push(AppRoutes.metricas)),
     ];
 
     final items2 = [
