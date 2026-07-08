@@ -57,7 +57,19 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     final authNotifier = ref.read(authProvider.notifier);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Crear cuenta')),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go(AppRoutes.login);
+            }
+          },
+        ),
+        title: const Text('Crear cuenta'),
+      ),
       body: SafeArea(
         child: LoadingOverlay(
           isLoading: auth.isLoading,
