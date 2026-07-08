@@ -1,5 +1,4 @@
 // lib/features/scanner/presentation/screens/scanner_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,44 +7,34 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../providers/scanner_provider.dart';
 import '../../../auth/providers/auth_provider.dart';
-
 class ScannerScreen extends ConsumerStatefulWidget {
   const ScannerScreen({super.key});
-
   @override
   ConsumerState<ScannerScreen> createState() => _ScannerScreenState();
 }
-
 class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   final MobileScannerController _scannerController = MobileScannerController(
     detectionSpeed: DetectionSpeed.noDuplicates,
     facing: CameraFacing.back,
   );
-
   bool _torchOn = false;
   bool _escaneado = false;
-
   @override
   void dispose() {
     _scannerController.dispose();
     super.dispose();
   }
-
   Future<void> _toggleTorch() async {
     await _scannerController.toggleTorch();
     if (mounted) setState(() => _torchOn = !_torchOn);
   }
-
   Future<void> _onDetect(BarcodeCapture capture) async {
     if (_escaneado) return;
-
     final String? valor = capture.barcodes.firstOrNull?.rawValue;
     if (valor == null || valor.isEmpty) return;
-
     _escaneado = true;
     HapticFeedback.mediumImpact();
     _scannerController.stop();
-
     final auth = ref.read(authProvider);
     if (!auth.isAuthenticated || auth.token == null) {
       await _mostrarError(
@@ -56,20 +45,25 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       }
       return;
     }
-
     showDialog<void>(
       context: context,
       barrierDismissible: false,
+      useRootNavigator: true,
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
-
     final service = ref.read(scannerServiceProvider);
     final result = await service.claimOscar(auth.token!, valor);
-
     if (!mounted) return;
-
-    Navigator.of(context).pop();
-
+    // ── CORRECCIÓN ──────────────────────────────────────────────────────
+    //  El showDialog de arriba usa useRootNavigator: true (empuja el
+    //  diálogo al Navigator raíz de GoRouter, no al Navigator del shell
+    //  donde vive esta pantalla). Por eso el pop también debe apuntar
+    //  explícitamente al rootNavigator; si no, Navigator.of(context) toma
+    //  el Navigator del shell y termina cerrando la propia pantalla del
+    //  Scanner en vez del diálogo, vaciando el stack del shell y
+    //  disparando el error "popped the last page off of the stack".
+    // ─────────────────────────────────────────────────────────────────
+    Navigator.of(context, rootNavigator: true).pop();
     if (result.containsKey('error')) {
       await _mostrarError(result['error'] as String);
       if (mounted) {
@@ -78,15 +72,14 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       }
       return;
     }
-
     _mostrarResultado(_formatClaimResponse(result));
   }
-
   Future<void> _mostrarError(String message) async {
     await showDialog(
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black.withOpacity(0.6),
+      useRootNavigator: true,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Error'),
         content: Text(message),
@@ -99,7 +92,6 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       ),
     );
   }
-
   String _formatClaimResponse(Map<String, dynamic> response) {
     final data = response['data'] as Map<String, dynamic>? ?? {};
     final itemCount = response['item_count'] ?? 0;
@@ -111,13 +103,11 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     final oscarName = data['oscar_name'] as String? ??
         data['oscar_code'] as String? ??
         'Oscar';
-
     return '¡Reclamo exitoso!\n'
         'Puntos obtenidos: $pointsText\n'
         'Items reciclados: $itemCount\n'
         'Oscar: $oscarName';
   }
-
   // ── CORRECCIÓN PRINCIPAL ──────────────────────────────────────────────────
   //  • Se usa `dialogContext` (del builder) para cerrar el dialog.
   //  • Se verifica `mounted` antes de tocar el State o navegar con el
@@ -128,12 +118,12 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black.withOpacity(0.6),
+      useRootNavigator: true,
       builder: (dialogContext) => _ResultadoDialog(
         contenido: contenido,
         onEscanearOtro: () {
           // 1. Cierra el dialog usando su propio context
           Navigator.of(dialogContext).pop();
-
           // 2. Solo toca el State si el Screen sigue montado
           if (mounted) {
             setState(() => _escaneado = false);
@@ -143,7 +133,6 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
         onCerrar: () {
           // 1. Cierra el dialog primero
           Navigator.of(dialogContext).pop();
-
           // 2. Navega solo si el Screen sigue montado
           if (mounted) {
             context.go(AppRoutes.home);
@@ -152,11 +141,9 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       ),
     );
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
@@ -250,21 +237,18 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     );
   }
 }
-
 // ─────────────────────────────────────────────────────────────────────────────
 //  OVERLAY
 // ─────────────────────────────────────────────────────────────────────────────
 class _ScanOverlay extends StatelessWidget {
   const _ScanOverlay();
   static const double _frameSize = 260.0;
-
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final centerX = size.width / 2;
     final centerY = size.height / 2;
     final half = _frameSize / 2;
-
     return CustomPaint(
       size: size,
       painter: _OverlayPainter(
@@ -278,11 +262,9 @@ class _ScanOverlay extends StatelessWidget {
     );
   }
 }
-
 class _OverlayPainter extends CustomPainter {
   final Rect frameRect;
   const _OverlayPainter({required this.frameRect});
-
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..color = Colors.black.withOpacity(0.55);
@@ -292,11 +274,9 @@ class _OverlayPainter extends CustomPainter {
       ..fillType = PathFillType.evenOdd;
     canvas.drawPath(path, paint);
   }
-
   @override
   bool shouldRepaint(_OverlayPainter old) => old.frameRect != frameRect;
 }
-
 // ─────────────────────────────────────────────────────────────────────────────
 //  RESULTADO DIALOG
 // ─────────────────────────────────────────────────────────────────────────────
@@ -304,17 +284,14 @@ class _ResultadoDialog extends StatelessWidget {
   final String contenido;
   final VoidCallback onEscanearOtro;
   final VoidCallback onCerrar;
-
   const _ResultadoDialog({
     required this.contenido,
     required this.onEscanearOtro,
     required this.onCerrar,
   });
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
@@ -407,7 +384,6 @@ class _ResultadoDialog extends StatelessWidget {
     );
   }
 }
-
 // ─────────────────────────────────────────────────────────────────────────────
 //  SCANNER ICON BUTTON
 // ─────────────────────────────────────────────────────────────────────────────
@@ -415,7 +391,6 @@ class _ScannerIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
   const _ScannerIconButton({required this.icon, required this.onTap});
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -432,7 +407,6 @@ class _ScannerIconButton extends StatelessWidget {
     );
   }
 }
-
 // ─────────────────────────────────────────────────────────────────────────────
 //  QR FRAME PAINTER
 // ─────────────────────────────────────────────────────────────────────────────
@@ -444,16 +418,13 @@ class _QRFramePainter extends CustomPainter {
       ..strokeWidth = 3.5
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
-
     const cornerLen = 36.0;
     const r = 14.0;
-
     // Top-left
     canvas.drawLine(const Offset(r, 0), const Offset(cornerLen, 0), paint);
     canvas.drawLine(const Offset(0, r), const Offset(0, cornerLen), paint);
     canvas.drawArc(const Rect.fromLTWH(0, 0, r * 2, r * 2), 3.14159,
         3.14159 / 2, false, paint);
-
     // Top-right
     canvas.drawLine(
         Offset(size.width - cornerLen, 0), Offset(size.width - r, 0), paint);
@@ -461,7 +432,6 @@ class _QRFramePainter extends CustomPainter {
         Offset(size.width, r), Offset(size.width, cornerLen), paint);
     canvas.drawArc(Rect.fromLTWH(size.width - r * 2, 0, r * 2, r * 2),
         3.14159 * 1.5, 3.14159 / 2, false, paint);
-
     // Bottom-left
     canvas.drawLine(
         Offset(0, size.height - cornerLen), Offset(0, size.height - r), paint);
@@ -469,7 +439,6 @@ class _QRFramePainter extends CustomPainter {
         Offset(r, size.height), Offset(cornerLen, size.height), paint);
     canvas.drawArc(Rect.fromLTWH(0, size.height - r * 2, r * 2, r * 2),
         3.14159 / 2, 3.14159 / 2, false, paint);
-
     // Bottom-right
     canvas.drawLine(Offset(size.width - cornerLen, size.height),
         Offset(size.width - r, size.height), paint);
@@ -482,7 +451,6 @@ class _QRFramePainter extends CustomPainter {
         false,
         paint);
   }
-
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
