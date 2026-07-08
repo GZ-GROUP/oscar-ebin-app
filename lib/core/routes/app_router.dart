@@ -13,6 +13,7 @@ import '../../features/maps/presentation/screens/maps_screen.dart';
 import '../../features/scanner/presentation/screens/scanner_screen.dart';
 import '../../features/leaderboard/presentation/screens/leaderboard_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
+import '../../features/profile/presentation/screens/metricas_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/onboarding_screen.dart';
 import '../../features/auth/presentation/screens/signup_screen.dart';
@@ -86,6 +87,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'signup',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const SignupScreen(),
+      ),
+
+      // ── Métricas personales (full-screen, sin bottom nav) ────────────────
+      GoRoute(
+        path: AppRoutes.metricas,
+        name: 'metricas',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const MetricasScreen(),
       ),
 
       // ── Main Shell (with nav bar) ────────────────────────────────────────

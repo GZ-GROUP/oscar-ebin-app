@@ -20,15 +20,18 @@ class ProfileScreen extends ConsumerWidget {
       _MenuItem(
           icon: Icons.card_giftcard_rounded,
           label: 'Recompensas',
-          color: AppColors.accentAmber),
+          color: AppColors.accentAmber,
+          onTap: () => context.push(AppRoutes.recompensasPerfil)),
       _MenuItem(
           icon: Icons.history_rounded,
           label: 'Historial',
-          color: AppColors.accentTeal),
+          color: AppColors.accentTeal,
+          onTap: () => context.push(AppRoutes.historial)),
       _MenuItem(
           icon: Icons.insights_rounded,
           label: 'Métricas personales',
-          color: AppColors.accentPurple),
+          color: AppColors.accentPurple,
+          onTap: () => context.push(AppRoutes.metricas)),
     ];
 
     final items2 = [
