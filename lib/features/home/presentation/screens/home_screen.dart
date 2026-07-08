@@ -148,7 +148,7 @@ class _EcoSummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            stats.pointsEarnedTotal.toStringAsFixed(2),
+            stats.pointsAvailable.toStringAsFixed(2),
             style: theme.textTheme.displayMedium?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.w800,
