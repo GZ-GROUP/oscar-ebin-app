@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 import 'core/routes/app_router.dart';
 import 'core/themes/app_theme.dart';
@@ -16,6 +17,10 @@ void main() async {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+
+  // Inicializa los datos de formato de fecha en español
+  // (requerido por DateFormat(..., 'es') en pantallas como Historial).
+  await initializeDateFormatting('es', null);
 
   // Transparent status bar
   SystemChrome.setSystemUIOverlayStyle(

@@ -7,6 +7,7 @@ import '../../../auth/providers/auth_provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../data/profile_model.dart';
 import '../../providers/profile_provider.dart';
+import 'history_screen.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -24,7 +25,15 @@ class ProfileScreen extends ConsumerWidget {
       _MenuItem(
           icon: Icons.history_rounded,
           label: 'Historial',
-          color: AppColors.accentTeal),
+          color: AppColors.accentTeal,
+          onTap: () {
+            final token = ref.read(authProvider).token;
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => HistoryScreen(authToken: token ?? ''),
+              ),
+            );
+          }),
       _MenuItem(
           icon: Icons.insights_rounded,
           label: 'Métricas personales',
