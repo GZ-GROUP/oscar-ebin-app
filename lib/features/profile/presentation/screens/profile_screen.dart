@@ -21,7 +21,8 @@ class ProfileScreen extends ConsumerWidget {
       _MenuItem(
           icon: Icons.card_giftcard_rounded,
           label: 'Recompensas',
-          color: AppColors.accentAmber),
+          color: AppColors.accentAmber,
+          onTap: () => context.push(AppRoutes.recompensas)),
       _MenuItem(
           icon: Icons.history_rounded,
           label: 'Historial',
